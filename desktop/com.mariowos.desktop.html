@@ -1153,6 +1153,27 @@ Questions? https://discord.gg/YDVxw6jfbH
     .ps-ring { position: absolute; left: calc(var(--psh, 394px) * -0.32); top: calc(var(--psh, 394px) * -0.32); width: calc(var(--psh, 394px) * 0.64); height: calc(var(--psh, 394px) * 0.64); border-radius: 50%; opacity: 0;
       border: 1.5px solid rgba(255, 255, 255, 0.55); box-shadow: inset 0 0 34px rgba(255, 255, 255, 0.2), 0 0 24px rgba(255, 255, 255, 0.12); }
 
+    /* A notification's button (an update, for example). */
+    .notif-action { align-self: flex-start; margin-top: 8px; padding: 5px 14px; border: 0; border-radius: 14px; background: var(--m3-accent-active); color: var(--m3-accent-on-active, #fff); font: 600 12px 'Poppins', sans-serif; cursor: pointer; pointer-events: auto; transition: filter 0.15s ease, transform 0.2s var(--spring-bounce); }
+    .notif-action:hover { filter: brightness(1.12); }
+    .notif-action:active { transform: scale(0.94); }
+    .toast-content { min-width: 0; }
+
+    /* ═══ Tiling ═══ */
+    #tileTiling.active { --qs-tint: #30b0c7; }
+    .qsi-tile { transform-box: fill-box; transform-origin: center; stroke-width: 2; transition: fill 0.3s var(--spring); }
+    .active > .hmos-icon-bg .qsi-tile { fill: currentColor; }
+    @keyframes qsiTileIn { from { transform: scale(0.35); opacity: 0; } to { transform: none; opacity: 1; } }
+    .qs-anim .qsi-tile { animation: qsiTileIn 0.5s var(--spring-bounce) both; }
+    .qs-anim .qsi-tile.t2 { animation-delay: 0.09s; } .qs-anim .qsi-tile.t3 { animation-delay: 0.18s; }
+    /* The window in use is outlined in the accent colour, so it can be told apart among the tiles. */
+    body.tiling .popup.tiled.focused:not(.tile-monocle) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--m3-accent-active) 80%, transparent), 0 16px 40px rgba(0, 0, 0, 0.45) !important; }
+    .tile-drop { position: fixed; z-index: 2147470000; pointer-events: none; box-sizing: border-box; border-radius: 16px; opacity: 0; transition: opacity 0.18s ease;
+      border: 2px solid color-mix(in srgb, var(--m3-accent-active) 85%, transparent); background: color-mix(in srgb, var(--m3-accent-active) 16%, transparent); }
+    .tile-drop.visible { opacity: 1; }
+    body.tile-resizing-x, body.tile-resizing-x * { cursor: ew-resize !important; }
+    body.tile-resizing-y, body.tile-resizing-y * { cursor: ns-resize !important; }
+
     /* In tablet mode a window sent home is parked, not removed from layout: the scripts still mark
        it display:none, but it stays laid out and simply isn't drawn, so going home and coming back
        never re-lays-out the whole app (that cost a 150ms frame each way). */
@@ -1443,6 +1464,10 @@ Questions? https://discord.gg/YDVxw6jfbH
             <div class="hmos-circle-toggle inactive" id="tileShowDesktop" onclick="closeAllPanels(); showDesktopToggle()">
               <div class="hmos-icon-bg"><span class="material-symbols-outlined">desktop_windows</span></div>
               <span class="hmos-label" data-i18n="desktop.cp.show-desktop">Show desktop</span>
+            </div>
+            <div class="hmos-circle-toggle inactive" id="tileTiling" onclick="toggleTiling()">
+              <div class="hmos-icon-bg"><svg class="qsi" viewBox="0 0 24 24" aria-hidden="true"><rect class="qsi-tile t1" x="3" y="3.5" width="8" height="17" rx="2.2"/><rect class="qsi-tile t2" x="13.5" y="3.5" width="7.5" height="7.5" rx="2.2"/><rect class="qsi-tile t3" x="13.5" y="13" width="7.5" height="7.5" rx="2.2"/></svg></div>
+              <span class="hmos-label" data-i18n="desktop.tiling.title">Tiling</span>
             </div>
             <div class="hmos-circle-toggle inactive" id="tileTaskView" onclick="closeAllPanels(); openTaskView()">
               <div class="hmos-icon-bg"><span class="material-symbols-outlined">view_carousel</span></div>
@@ -2491,6 +2516,7 @@ Questions? https://discord.gg/YDVxw6jfbH
         document.body.classList.remove('task-view');
         tv.querySelectorAll('.tv-label').forEach(label => label.remove());
         updateContextBar();
+        retile();
       });
       if (!anims.length) document.body.classList.remove('task-view');
     }
@@ -3053,7 +3079,7 @@ Questions? https://discord.gg/YDVxw6jfbH
       if (front) tabletHideWindow(front);
       document.body.classList.remove('tablet-apps', 'tablet-hide-desktop', 'tablet-app-open');
       tabletAnims.get(document.getElementById('desktop-wallpaper'))?.cancel();
-      const finish = () => { if (gen !== tabletModeGen) return; document.body.classList.remove('tablet-mode'); [home, dock, status].forEach(el => { tabletAnims.get(el)?.cancel(); el.getAnimations().forEach(a => a.cancel()); el.style.transform = ''; el.style.opacity = ''; }); home.querySelectorAll('.th-widget, .th-app').forEach(el => el.getAnimations().forEach(a => a.cancel())); };
+      const finish = () => { if (gen !== tabletModeGen) return; document.body.classList.remove('tablet-mode'); [home, dock, status].forEach(el => { tabletAnims.get(el)?.cancel(); el.getAnimations().forEach(a => a.cancel()); el.style.transform = ''; el.style.opacity = ''; }); home.querySelectorAll('.th-widget, .th-app').forEach(el => el.getAnimations().forEach(a => a.cancel())); retile({ animate: false }); };
       if (!animate) { finish(); return; }
       const into = { duration: 600, easing: TV_EASE };
       document.getElementById('desktop-icons').animate([{ opacity: 0, transform: 'scale(0.92)' }, { opacity: 1, transform: 'none' }], { ...into, delay: 120, fill: 'backwards' });
@@ -3958,9 +3984,25 @@ Questions? https://discord.gg/YDVxw6jfbH
       } catch (err) {}
     }
 
-    function showNotification(title, msg, icon = "🔔", { showInPrivacy = false } = {}) {
+    // A notification's button: what it runs stays here, the notification only keeps its id.
+    const notificationActions = new Map();
+    let notificationActionSeq = 0;
+    function registerNotificationAction(action) {
+      const id = 'na' + (++notificationActionSeq);
+      notificationActions.set(id, action.run);
+      return { id, label: String(action.label || '') };
+    }
+    function notificationActionButton(ref, dismiss) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'notif-action'; b.textContent = ref.label;
+      b.addEventListener('click', e => { e.stopPropagation(); const run = notificationActions.get(ref.id); dismiss?.(); closeAllPanels(); run?.(); });
+      return b;
+    }
+
+    function showNotification(title, msg, icon = "🔔", { showInPrivacy = false, action = null } = {}) {
       const time = new Date().toLocaleTimeString(mariowOSI18n.locale, { hour: '2-digit', minute: '2-digit' });
-      notificationsHistory.unshift({ title, msg, icon, time, showInPrivacy }); if (notificationsHistory.length > 10) notificationsHistory.pop(); updateNotificationCenter();
+      const actionRef = action ? registerNotificationAction(action) : null;
+      notificationsHistory.unshift({ title, msg, icon, time, showInPrivacy, action: actionRef }); if (notificationsHistory.length > 10) notificationsHistory.pop(); updateNotificationCenter();
       if (qsState.dnd) return;
       const container = document.getElementById('toast-container'); const toast = document.createElement('div'); toast.className = 'toast';
       // SECURITY (layer-2 XSS): title/msg may carry untrusted text (SSID, BT/app name); use DOM.
@@ -3969,6 +4011,7 @@ Questions? https://discord.gg/YDVxw6jfbH
       const tTitle = document.createElement('div'); tTitle.className = 'toast-title'; tTitle.textContent = title == null ? '' : String(title);
       const tMsg = privateText(document.createElement('div'), msg, showInPrivacy); tMsg.classList.add('toast-msg');
       tContent.append(tTitle, tMsg); toast.append(tIcon, tContent);
+      if (actionRef) tContent.appendChild(notificationActionButton(actionRef, () => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 350); }));
       container.prepend(toast); setTimeout(() => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 350); }, 4000);
     }
 
@@ -4035,6 +4078,7 @@ Questions? https://discord.gg/YDVxw6jfbH
         row.append(title, time);
         const msg = privateText(document.createElement('div'), n.msg, n.showInPrivacy); msg.classList.add('nc-item-msg');
         body.append(row, msg);
+        if (n.action) body.appendChild(notificationActionButton(n.action, () => dismissNotification(n, item)));
         const close = document.createElement('button'); close.type = 'button'; close.className = 'nc-item-close material-symbols-outlined'; close.textContent = 'close';
         close.addEventListener('click', e => { e.stopPropagation(); dismissNotification(n, item); });
         item.append(icon, body, close);
@@ -4309,7 +4353,7 @@ Questions? https://discord.gg/YDVxw6jfbH
     // the way there as a translate + scale on the compositor, so it stays smooth however
     // busy the page is. Starting from the current on-screen rect also makes it interruptible.
     const rectAnimations = new WeakMap();
-    function animateRect(el, applyRect, ms) {
+    function animateRect(el, applyRect, ms, { delay = 0, easing = 'cubic-bezier(0.16, 1, 0.3, 1)' } = {}) {
       const from = el.getBoundingClientRect();
       rectAnimations.get(el)?.cancel();
       const origin = el.style.transformOrigin;
@@ -4320,7 +4364,7 @@ Questions? https://discord.gg/YDVxw6jfbH
       const anim = el.animate([
         { translate: `${from.left - to.left}px ${from.top - to.top}px`, scale: `${from.width / to.width} ${from.height / to.height}` },
         { translate: '0px 0px', scale: '1 1' }
-      ], { duration: ms, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' });
+      ], { duration: ms, delay, easing, fill: delay ? 'backwards' : 'none' });
       rectAnimations.set(el, anim);
       const done = () => { if (rectAnimations.get(el) === anim) { rectAnimations.delete(el); el.style.transformOrigin = origin; } };
       anim.onfinish = done; anim.oncancel = done;
@@ -4329,6 +4373,7 @@ Questions? https://discord.gg/YDVxw6jfbH
     function toggleMaximize(popupId) {
       const el = document.getElementById(popupId); if (!el) return;
       if (tabletAppsOn()) return;
+      if (tilingActive() && el.classList.contains('tiled')) { toggleTileMonocle(el); return; }
       animateRect(el, () => {
       if (el.classList.contains('maximized')) {
         el.classList.remove('maximized'); el.style.width = el.dataset.prevWidth; el.style.height = el.dataset.prevHeight; el.style.top = el.dataset.prevTop; el.style.left = el.dataset.prevLeft; el.style.borderRadius = '16px';
@@ -4927,6 +4972,265 @@ Questions? https://discord.gg/YDVxw6jfbH
       privacyLens(Math.round(h * 96 / 126), h);
     }, { timeout: 6000 });
 
+    // ═══ Tiling: the windows share the screen, like a tiling window manager ═══
+    // With tiling on, every window on screen gets a tile (dialogs stay floating): the first
+    // takes half the screen, the next half of what is left, and so on, turning each time
+    // ("dwindle"). A new window slots in and the others glide aside on the desktop's spring;
+    // closing or minimizing one lets the rest fill the space. Drag a title bar onto another
+    // window to swap the two, drag an edge to move the split between neighbours, and maximize
+    // fills the screen until it is pressed again. Turning tiling off puts every window back
+    // where it was. It waits while tablet mode is on (apps are full screen there anyway).
+    let tilingOn = false, tilingGap = 10, tileMonocle = null;
+    const tileOrder = [], tileRatios = [];
+    const tilingActive = () => tilingOn && !tabletAppsOn();
+    const isTileable = p => !!p && p.classList.contains('popup') && !p.id.startsWith('dialog_');
+
+    // The windows on screen, in the order they were tiled (newcomers join at the end).
+    function tileWindows() {
+      const shown = [...document.querySelectorAll('.popup.active')].filter(p => isTileable(p) && p.style.display !== 'none'
+        && !p.classList.contains('closing') && !p.classList.contains('minimizing'));
+      for (let i = tileOrder.length - 1; i >= 0; i--) if (!shown.some(p => p.id === tileOrder[i])) tileOrder.splice(i, 1);
+      shown.forEach(p => { if (!tileOrder.includes(p.id)) tileOrder.push(p.id); });
+      if (tileMonocle && !tileOrder.includes(tileMonocle)) tileMonocle = null;
+      return tileOrder.map(id => document.getElementById(id));
+    }
+
+    // Where each window goes, and every split (for resizing by an edge).
+    function tileLayout(windows) {
+      const g = tilingGap;
+      let area = { x: g, y: g, w: innerWidth - g * 2, h: innerHeight - TASKBAR_H - g * 2 };
+      const full = { ...area }, tiles = [], splits = [];
+      windows.forEach((el, i) => {
+        if (i === windows.length - 1) { tiles.push({ el, rect: area }); return; }
+        const r = Math.min(0.85, Math.max(0.15, tileRatios[i] ?? 0.5));
+        if (area.w >= area.h) {
+          const w1 = Math.round((area.w - g) * r);
+          tiles.push({ el, rect: { x: area.x, y: area.y, w: w1, h: area.h } });
+          splits.push({ i, axis: 'x', area });
+          area = { x: area.x + w1 + g, y: area.y, w: area.w - w1 - g, h: area.h };
+        } else {
+          const h1 = Math.round((area.h - g) * r);
+          tiles.push({ el, rect: { x: area.x, y: area.y, w: area.w, h: h1 } });
+          splits.push({ i, axis: 'y', area });
+          area = { x: area.x, y: area.y + h1 + g, w: area.w, h: area.h - h1 - g };
+        }
+      });
+      tiles.forEach(t => { if (t.el.id === tileMonocle) t.rect = full; });
+      return { tiles, splits };
+    }
+
+    const placeTile = (el, r) => { el.style.left = r.x + 'px'; el.style.top = r.y + 'px'; el.style.width = r.w + 'px'; el.style.height = r.h + 'px'; };
+    const tilePlacedAt = (el, r) => parseFloat(el.style.left) === r.x && parseFloat(el.style.top) === r.y && parseFloat(el.style.width) === r.w && parseFloat(el.style.height) === r.h;
+
+    // A window's floating place, kept for when tiling is turned off.
+    function rememberFloat(el) {
+      if (el.dataset.floatRect) return;
+      const cs = getComputedStyle(el), max = el.classList.contains('maximized');
+      el.dataset.floatRect = JSON.stringify(max
+        ? { left: el.dataset.prevLeft, top: el.dataset.prevTop, width: el.dataset.prevWidth, height: el.dataset.prevHeight }
+        : { left: el.style.left || cs.left, top: el.style.top || cs.top, width: el.style.width || cs.width, height: el.style.height || cs.height });
+    }
+
+    // Lays every window out. The ones that move glide there; `except` lands at once (a window
+    // that is opening grows into its tile from its icon instead).
+    function retile({ animate = true, except = null, stagger = 0 } = {}) {
+      if (!tilingActive() || taskViewOpen || document.body.classList.contains('task-view')) return;
+      const { tiles } = tileLayout(tileWindows());
+      let moved = 0;
+      tiles.forEach(({ el, rect }) => {
+        rememberFloat(el);
+        el.classList.add('tiled'); el.classList.remove('maximized'); delete el.dataset.snapped;
+        el.classList.toggle('tile-monocle', el.id === tileMonocle);
+        if (tilePlacedAt(el, rect)) return;
+        if (el === except || !animate) { rectAnimations.get(el)?.cancel(); placeTile(el, rect); return; }
+        animateRect(el, () => placeTile(el, rect), 520, { delay: moved++ * stagger, easing: TV_EASE });
+      });
+      const monocle = tileMonocle && document.getElementById(tileMonocle);
+      if (monocle) monocle.style.zIndex = getHighestZIndex(document.getElementsByClassName('popup')) + 1;
+    }
+
+    // Tiling on or off (from the setting: Quick Settings, Wallpaper & style or Ctrl+Alt+T).
+    function setTiling(on, gap = tilingGap) {
+      const gapChanged = gap !== tilingGap;
+      tilingGap = gap;
+      document.getElementById('tileTiling')?.classList.toggle('active', on);
+      document.getElementById('tileTiling')?.classList.toggle('inactive', !on);
+      if (on === tilingOn) { if (on && gapChanged) retile(); return; }
+      tilingOn = on;
+      document.body.classList.toggle('tiling', on);
+      if (on) { snapZone = null; showSnapPreview(null); retile({ stagger: 45 }); return; }
+      // Off: every window glides back to where it floated before.
+      let i = 0;
+      document.querySelectorAll('.popup.tiled').forEach(el => {
+        el.classList.remove('tiled', 'tile-monocle');
+        let r = null;
+        try { r = JSON.parse(el.dataset.floatRect || 'null'); } catch (e) {}
+        delete el.dataset.floatRect;
+        if (!r) return;
+        const back = () => { el.style.left = r.left; el.style.top = r.top; el.style.width = r.width; el.style.height = r.height; };
+        if (el.style.display === 'none' || !el.classList.contains('active')) { back(); return; }
+        animateRect(el, back, 520, { delay: i++ * 45, easing: TV_EASE });
+      });
+      tileOrder.length = 0; tileRatios.length = 0; tileMonocle = null;
+    }
+
+    function toggleTiling() {
+      const st = loadDesktopStyle();
+      st.tiling = st.tiling !== true;
+      try { localStorage.setItem('desktopStyle', JSON.stringify(st)); } catch (e) {}
+      applyDesktopStyle();
+      fetch('/api/desktop-style', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(st) }).catch(() => {});
+      if (st.tiling) playQsIcon('tileTiling');
+    }
+
+    // Maximize, while tiled: the window fills the screen until it is pressed again.
+    function toggleTileMonocle(el) {
+      tileMonocle = tileMonocle === el.id ? null : el.id;
+      retile();
+      if (tileMonocle) focusPopup(el);
+    }
+
+    // Dragging a tiled window: the tile under the pointer lights up, and letting go there
+    // swaps the two; anywhere else the window glides back to its own tile.
+    let tileDropEl = null, tileDropShown = null;
+    function tileUnder(x, y, dragged) {
+      return tileWindows().find(p => {
+        if (p === dragged) return false;
+        const l = parseFloat(p.style.left), t = parseFloat(p.style.top);
+        return x >= l && x <= l + parseFloat(p.style.width) && y >= t && y <= t + parseFloat(p.style.height);
+      }) || null;
+    }
+    function showTileDrop(target) {
+      if (!tileDropEl) { tileDropEl = document.createElement('div'); tileDropEl.className = 'tile-drop'; document.body.appendChild(tileDropEl); }
+      if (target === tileDropShown) return;
+      tileDropShown = target;
+      if (!target) { tileDropEl.classList.remove('visible'); return; }
+      const place = () => Object.assign(tileDropEl.style, { left: target.style.left, top: target.style.top, width: target.style.width, height: target.style.height });
+      if (tileDropEl.classList.contains('visible')) animateRect(tileDropEl, place, 260, { easing: TV_EASE }); else place();
+      tileDropEl.classList.add('visible');
+    }
+    function dropTile(dragged, target) {
+      showTileDrop(null);
+      if (target) {
+        const a = tileOrder.indexOf(dragged.id), b = tileOrder.indexOf(target.id);
+        if (a >= 0 && b >= 0) [tileOrder[a], tileOrder[b]] = [tileOrder[b], tileOrder[a]];
+        if (tileMonocle === dragged.id || tileMonocle === target.id) tileMonocle = null;
+      }
+      retile();
+    }
+
+    // Resizing a tiled window by an edge moves the split it shares with its neighbours.
+    function tileResizeStart(el, dir, e, handle) {
+      e.preventDefault(); e.stopPropagation(); focusPopup(el);
+      const g = tilingGap, { splits } = tileLayout(tileWindows());
+      const L = parseFloat(el.style.left), T = parseFloat(el.style.top), R = L + parseFloat(el.style.width), B = T + parseFloat(el.style.height);
+      const edgeOf = s => s.axis === 'x' ? s.area.x + Math.round((s.area.w - g) * Math.min(0.85, Math.max(0.15, tileRatios[s.i] ?? 0.5))) + g / 2
+                                         : s.area.y + Math.round((s.area.h - g) * Math.min(0.85, Math.max(0.15, tileRatios[s.i] ?? 0.5))) + g / 2;
+      const spans = s => s.axis === 'x' ? T >= s.area.y - 1 && B <= s.area.y + s.area.h + 1 : L >= s.area.x - 1 && R <= s.area.x + s.area.w + 1;
+      const want = [];
+      if (dir.includes('e')) want.push(['x', R + g / 2]);
+      if (dir.includes('w')) want.push(['x', L - g / 2]);
+      if (dir.includes('s')) want.push(['y', B + g / 2]);
+      if (dir.includes('n')) want.push(['y', T - g / 2]);
+      const picked = want.map(([axis, at]) => splits.find(s => s.axis === axis && Math.abs(edgeOf(s) - at) < 3 && spans(s))).filter(Boolean);
+      if (!picked.length) return;
+      document.body.classList.add('window-dragging', 'tile-resizing', picked[0].axis === 'x' ? 'tile-resizing-x' : 'tile-resizing-y');
+      try { handle.setPointerCapture(e.pointerId); } catch (_) {}
+      let px = e.clientX, py = e.clientY, raf = 0;
+      const apply = () => {
+        raf = 0;
+        picked.forEach(s => {
+          const v = s.axis === 'x' ? (px - s.area.x - g / 2) / (s.area.w - g) : (py - s.area.y - g / 2) / (s.area.h - g);
+          tileRatios[s.i] = Math.min(0.85, Math.max(0.15, v));
+        });
+        retile({ animate: false });
+      };
+      const move = ev => { px = ev.clientX; py = ev.clientY; if (!raf) raf = requestAnimationFrame(apply); };
+      const up = () => {
+        if (raf) { cancelAnimationFrame(raf); apply(); }
+        handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up);
+        document.body.classList.remove('window-dragging', 'tile-resizing', 'tile-resizing-x', 'tile-resizing-y');
+      };
+      handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', up); handle.addEventListener('pointercancel', up);
+    }
+
+    // Ctrl+Alt+T turns tiling on or off; Ctrl+Alt+arrow moves to the window on that side,
+    // and with Shift the window swaps places with it.
+    function tileNeighbour(from, key) {
+      const c = el => ({ x: parseFloat(el.style.left) + parseFloat(el.style.width) / 2, y: parseFloat(el.style.top) + parseFloat(el.style.height) / 2 });
+      const a = c(from), dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[key];
+      let best = null, bestScore = Infinity;
+      tileWindows().forEach(el => {
+        if (el === from) return;
+        const b = c(el), dx = b.x - a.x, dy = b.y - a.y, along = dx * dir[0] + dy * dir[1];
+        if (along <= 1) return;
+        const score = along + Math.abs(dx * dir[1] + dy * dir[0]) * 2;
+        if (score < bestScore) { bestScore = score; best = el; }
+      });
+      return best;
+    }
+    document.addEventListener('keydown', e => {
+      if (!e.ctrlKey || !e.altKey || e.metaKey) return;
+      if (e.code === 'KeyT') { e.preventDefault(); toggleTiling(); return; }
+      if (!tilingActive() || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+      const from = document.querySelector('.popup.tiled.focused');
+      const to = from && tileNeighbour(from, e.key);
+      e.preventDefault();
+      if (!to) return;
+      if (e.shiftKey) dropTile(from, to);
+      else focusPopup(to);
+    });
+    window.addEventListener('resize', () => retile({ animate: false }));
+
+    // ═══ System updates, the macOS way (see server.js) ═══
+    // "Restart Now": the desktop powers down as for a restart, then the launcher installs the
+    // downloaded update on the boot screen and starts the new version.
+    async function installDownloadedUpdate() {
+      closeAllPanels();
+      const motion = deskShutdownMotion();
+      try {
+        await motion.done;
+        const res = await fetch('/api/system/install-staged-update', { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || mariowOSI18n.t("desktop.update.install-failed-text", "The update could not be installed."));
+        // In the mariowOS container the kernel is going down now and the launcher takes over.
+        if (window.mariowOSElectron) return;
+        motion.undo();
+        showNotification(mariowOSI18n.t("desktop.update.installed", "Update installed"), mariowOSI18n.t("desktop.update.reloading", "mariowOS is restarting…"), '✨');
+        setTimeout(() => location.reload(), data.restarting ? 6000 : 1500);
+      } catch (error) {
+        motion.undo();
+        showNotification(mariowOSI18n.t("desktop.update.install-failed", "Couldn't install the update"), error.message, '⚠️');
+      }
+    }
+
+    // Updates are checked in the background, a minute after start-up and then every six
+    // hours. An administrator is told once a day at most per version: an update to download
+    // (the button opens Settings > Updater), or one already downloaded (the button restarts
+    // to install it).
+    const UPDATE_NOTICE_KEY = (window.mariowOSUserKey || (k => k))('mariowos_update_notice');
+    async function checkForUpdatesQuietly() {
+      if (!currentUser.admin || document.querySelector('#lockscreenContainer.active')) return;
+      let data = null;
+      try { const res = await fetch('/api/system/check-update', { cache: 'no-store' }); if (res.ok) data = await res.json(); } catch (e) { return; }
+      if (!data || !data.updateAvailable || !data.latest) return;
+      const kind = data.staged ? 'ready' : 'available';
+      let last = {};
+      try { last = JSON.parse(localStorage.getItem(UPDATE_NOTICE_KEY) || '{}') || {}; } catch (e) {}
+      if (last.version === data.latest && last.kind === kind && Date.now() - (last.at || 0) < 20 * 3600e3) return;
+      try { localStorage.setItem(UPDATE_NOTICE_KEY, JSON.stringify({ version: data.latest, kind, at: Date.now() })); } catch (e) {}
+      const version = data.latest;
+      if (data.staged) {
+        showNotification(mariowOSI18n.t("desktop.update.ready", "mariowOS {version} is ready to install", { version }), mariowOSI18n.t("desktop.update.ready-text", "Restart to finish installing it."), '✨',
+          { action: { label: mariowOSI18n.t("desktop.update.restart", "Restart now"), run: installDownloadedUpdate } });
+      } else {
+        showNotification(mariowOSI18n.t("desktop.update.available", "Update available"), mariowOSI18n.t("desktop.update.available-text", "mariowOS {version} is ready to download.", { version }), '✨',
+          { action: { label: mariowOSI18n.t("desktop.update.open", "Update"), run: () => openSettingsPage('updater') } });
+      }
+    }
+    setTimeout(checkForUpdatesQuietly, 60 * 1000);
+    setInterval(checkForUpdatesQuietly, 6 * 3600 * 1000);
+
     function onWindowExit(popup, finish) {
       cancelWindowExit(popup);
       const onEnd = () => { cancelWindowExit(popup); finish(); };
@@ -4982,6 +5286,7 @@ Questions? https://discord.gg/YDVxw6jfbH
 
       setPopupTransformOrigin(popupId);
       focusPopup(popup); popup.style.display = "block"; popup.classList.add("active"); popupCounter++;
+      if (tilingActive() && isTileable(popup)) retile({ except: popup });
       // Tablet mode: the app grows out of its icon (before the app loads, which waits for this).
       if (tabletAppsOn() && isTabletApp(popup) && !tabletWasShown) tabletShowApp(popup);
       else if (!tabletAppsOn() && !tabletWasShown) desktopOpenMotion(popup);
@@ -5012,6 +5317,7 @@ Questions? https://discord.gg/YDVxw6jfbH
       deskPassFocus(popup);
       updateContextBar();
       onWindowExit(popup, () => { popup.style.display = "none"; popup.classList.remove("minimizing"); });
+      retile();
       desktopMinimizeMotion(popup);
       deskDipIcon(popupId);
     }
@@ -5024,6 +5330,7 @@ Questions? https://discord.gg/YDVxw6jfbH
       popup.classList.remove("active"); popup.classList.add("closing");
       deskPassFocus(popup);
       updateContextBar();
+      retile();
       const finishClose = () => {
         popup.style.display = "none"; popup.classList.remove("closing"); 
         const embeddedView = popupId === 'popup2' ? null : popup.querySelector('iframe, webview'); if (embeddedView) { if (!embeddedView.dataset.defaultSrc) embeddedView.dataset.defaultSrc = embeddedView.src; embeddedView.src = 'about:blank'; }
@@ -5061,6 +5368,7 @@ Questions? https://discord.gg/YDVxw6jfbH
         const h = document.createElement('div'); h.className = `resize-handle ${dir}`; el.appendChild(h);
         h.addEventListener('pointerdown', (e) => {
           if (e.button !== 0 || el.classList.contains('maximized')) return;
+          if (tilingActive() && el.classList.contains('tiled')) { tileResizeStart(el, dir, e, h); return; }
           e.preventDefault(); e.stopPropagation(); focusPopup(el);
           rectAnimations.get(el)?.cancel();
           const startX = e.clientX, startY = e.clientY;
@@ -5093,7 +5401,7 @@ Questions? https://discord.gg/YDVxw6jfbH
     }
 
     function makeDraggable(el, handle, minTop) {
-      let isDragging = false, offsetX = 0, offsetY = 0, baseLeft = 0, baseTop = 0, dragLeft = 0, dragTop = 0, dragW = 0, dragH = 0, dragMoved = false, rafId = 0, pendingX = 0, pendingY = 0, pointerId = null;
+      let tileDropTarget = null, isDragging = false, offsetX = 0, offsetY = 0, baseLeft = 0, baseTop = 0, dragLeft = 0, dragTop = 0, dragW = 0, dragH = 0, dragMoved = false, rafId = 0, pendingX = 0, pendingY = 0, pointerId = null;
       // App tabs in the title bar (Terminal, Files) are dragged to reorder them, not to move the window.
       const isInteractiveHeaderTarget = target => target.closest('.action-btn, .browser-tab-btn, #browserNewTab, .notes-tab-btn, #os-term-actions, #os-files-actions');
       handle.addEventListener('dblclick', (e) => { if (isInteractiveHeaderTarget(e.target) || tabletAppsOn()) return; toggleMaximize(el.id); });
@@ -5147,8 +5455,8 @@ Questions? https://discord.gg/YDVxw6jfbH
         // Moved by the compositor while dragging (no layout, no repaint); closeDrag commits it.
         el.style.translate = `${dragLeft - baseLeft}px ${dragTop - baseTop}px`;
         dragMoved = true;
-snapZone = getSnapZone(pendingX, pendingY);
-        showSnapPreview(snapZone);
+        if (tilingActive() && el.classList.contains('tiled')) { tileDropTarget = tileUnder(pendingX, pendingY, el); showTileDrop(tileDropTarget); }
+        else { snapZone = getSnapZone(pendingX, pendingY); showSnapPreview(snapZone); }
       }
 
       function closeDrag() {
@@ -5165,7 +5473,8 @@ snapZone = getSnapZone(pendingX, pendingY);
         if (dragMoved) {
           el.style.translate = ''; el.style.left = dragLeft + 'px'; el.style.top = dragTop + 'px';
 }
-        if (zone) applySnap(el, zone);
+        if (tilingActive() && el.classList.contains('tiled')) { const target = tileDropTarget; tileDropTarget = null; showTileDrop(null); if (dragMoved) dropTile(el, target); }
+        else if (zone) applySnap(el, zone);
       }
     }
 
@@ -6433,7 +6742,7 @@ snapZone = getSnapZone(pendingX, pendingY);
     const DESKTOP_STYLE_DEFAULTS = {
       accent: '#0a84ff', wallpaperMode: 'image', wallpaperColor: '#1c2333', gradient: 'aurora', fit: 'cover',
       brightness: 100, saturation: 100, blur: 0, radius: 16, glass: 75, iconScale: 100, uiFont: 'Poppins',
-      nightWarmth: 35, nightSchedule: 'off', nightFrom: '21:00', nightTo: '07:00', dockMagnify: false
+      nightWarmth: 35, nightSchedule: 'off', nightFrom: '21:00', nightTo: '07:00', dockMagnify: false, tiling: false, tilingGap: 10
     };
     const DESKTOP_GRADIENTS = {
       aurora: 'linear-gradient(135deg, #0f2027 0%, #203a43 45%, #2c5364 100%)',
@@ -6475,6 +6784,8 @@ snapZone = getSnapZone(pendingX, pendingY);
         wallpaper.style.backgroundColor = '#05070b';
       }
       document.body.classList.toggle('dock-magnify', st.dockMagnify === true);
+      const gap = Number(st.tilingGap);
+      setTiling(st.tiling === true, Number.isFinite(gap) ? Math.max(0, Math.min(32, Math.round(gap))) : 10);
       const blur = Math.max(0, Math.min(30, Number(st.blur) || 0));
       // Dark mode (Functions Lab) dims the wallpaper on top of the user's own adjustments.
       const dark = document.body.classList.contains('lab-dark-mode');
@@ -6562,6 +6873,7 @@ snapZone = getSnapZone(pendingX, pendingY);
       }
 
       if (e.data.type === 'apply-style') applyDesktopStyle();
+      if (e.data.type === 'install-update' && e.origin === location.origin) installDownloadedUpdate();
       if (e.data.type === 'quick-settings-changed') loadQuickSettings();
       if (e.data.type === 'open-settings-page' && ['you', 'wallpaper', 'system', 'apps', 'security', 'functions', 'about'].includes(e.data.page)) openSettingsPage(e.data.page);
       if (e.data.type === 'apply-wallpaper') { applyUserWallpaper(); (async () => { try { const r = await fetch("/get-settings"); if (r.ok) { const cfg = await r.json(); applyLabFlagEffects({ darkMode: cfg.darkMode, performance: cfg.performance, animations: cfg.animations, developer: cfg.developer }); }; } catch (e) {} })(); }
@@ -6583,6 +6895,14 @@ snapZone = getSnapZone(pendingX, pendingY);
         }
       }
       
+      if (e.data.type === 'app-updated-live' && e.origin === location.origin) {
+        // An open window of the updated app reloads onto the new build.
+        const win = document.getElementById(String(e.data.appId == null ? '' : e.data.appId));
+        if (win) win.querySelectorAll('iframe').forEach(frame => { try { frame.src = frame.src; } catch (err) {} });
+        const entry = dynamicInstalledApps.find(a => a.id === e.data.appId);
+        showNotification(mariowOSI18n.t("desktop.notify.app-updated", "App updated"), mariowOSI18n.t("desktop.notify.app-updated-msg", "{app} is on the latest version.", { app: (entry && entry.title) || e.data.appId }), "⬆️");
+      }
+
       if (e.data.type === 'app-uninstalled-live') {
         const appId = e.data.appId; closePopup(appId); 
         dynamicInstalledApps = dynamicInstalledApps.filter(a => a.id !== appId);
@@ -7224,8 +7544,11 @@ snapZone = getSnapZone(pendingX, pendingY);
     }
 
     // Advanced Drag and Drop to stop browsers from canceling drops
-    document.body.addEventListener('dragenter', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
-    document.body.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    // A taskbar icon being reordered is a "move" drag (effectAllowed = 'move'): forcing
+    // 'copy' on it makes Chromium refuse the drop, so the dock could never be reordered.
+    const pageDropEffect = () => draggedAppId ? 'move' : 'copy';
+    document.body.addEventListener('dragenter', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = pageDropEffect(); });
+    document.body.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = pageDropEffect(); });
   
     document.body.addEventListener('drop', async (e) => {
       if (e.target.closest('.popup')) return; // Let apps handle their own drops

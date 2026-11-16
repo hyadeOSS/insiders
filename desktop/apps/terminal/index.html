@@ -40,6 +40,9 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
       -moz-osx-font-smoothing: grayscale;
     }
     html, body { height: 100%; background: #000; overflow: hidden; }
+    /* Inside ACode: the editor's panel colour, a little tighter. */
+    html.acode-mode, html.acode-mode body { background: #0b0e15; }
+    html.acode-mode .terminal { padding: 10px 14px; font-size: 12.5px; }
     a { color: #92d9ff; text-decoration: none; }
     a:hover { text-decoration: underline; }
 
@@ -285,6 +288,18 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
     const nanoHelp = document.getElementById("nano-help");
     const nanoModified = document.getElementById("nano-modified");
     const IS_EMBEDDED = window.parent !== window;
+    // Inside ACode (?mode=acode) the terminal is a panel of the editor: one tab, no tab bar
+    // in a window header, started in the project's folder, with build / run / check /
+    // install meaning "acode build" and so on.
+    const PAGE_PARAMS = new URLSearchParams(location.search);
+    const ACODE_MODE = IS_EMBEDDED && PAGE_PARAMS.get("mode") === "acode";
+    // The desktop: the parent window, or, inside ACode, the parent's parent.
+    const DESKTOP = (() => {
+      let w = window;
+      try { for (let i = 0; i < 4 && w.parent !== w; i++) { w = w.parent; if (typeof w.openPopup === "function") return w; } } catch (error) {}
+      return IS_EMBEDDED ? window.parent : window;
+    })();
+    if (ACODE_MODE) document.documentElement.classList.add("acode-mode");
 
     // Multi-tab state
     let tabs = [];
@@ -313,7 +328,7 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
 
 
     // --- TAB & UI INJECTION LOGIC ---
-    if (IS_EMBEDDED) {
+    if (IS_EMBEDDED && !ACODE_MODE) {
       const frame = window.frameElement;
       const osHeader = frame ? frame.closest('.popup').querySelector('.popup-header') : window.parent.document.querySelector('#popup8 .popup-header');
       
@@ -494,6 +509,7 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
       tabState.history = loadStoredHistory();
       tabState.historyIndex = tabState.history.length;
       tabState.shell = createShell(tabState);
+      if (ACODE_MODE) setUpACodeTab(tabState);
 
       tabs.push(tabState);
       if (tabsContainer) {
@@ -527,8 +543,43 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
       if (tabs.length > 0) switchTab(tabs[Math.max(0, index - 1)].id); else createTab(); 
     }
 
+    // In ACode: the project's folder, the pipeline shortcuts and $ACODE_PROJECT.
+    function setUpACodeTab(tab) {
+      const project = PAGE_PARAMS.get("project") || "";
+      const cwd = PAGE_PARAMS.get("cwd") || "";
+      if (cwd.startsWith("/home/")) tab.currentDirectory = normalizeVirtualPath(cwd, "/home");
+      if (project) tab.shell.setVar("ACODE_PROJECT", project);
+      for (const verb of ["build", "run", "check", "install"]) tab.shell.aliases.set(verb, `acode ${verb}`);
+    }
+
+    // Messages from the ACode window around this terminal.
+    function handleACodeMessage(tab, data) {
+      if (data.type === "acode-project" && typeof data.project === "string") {
+        tab.shell.setVar("ACODE_PROJECT", data.project);
+        if (typeof data.path === "string" && data.path.startsWith("/home/ACode/") && !tab.busy) {
+          tab.previousDirectory = tab.currentDirectory;
+          tab.currentDirectory = normalizeVirtualPath(data.path, "/home");
+          updatePromptPath(tab);
+        }
+      } else if (data.type === "acode-run-command" && typeof data.command === "string") {
+        // A toolbar button typed a command for the user: it runs like one they typed.
+        if (tab.busy || tab.inputRequest || !tab.currentInput) { window.parent.postMessage({ type: "acode-terminal-busy" }, window.location.origin); return; }
+        tab.pendingSource = "";
+        tab.inputBuffer = data.command;
+        renderInput(tab);
+        window.parent.postMessage({ type: "acode-command-accepted" }, window.location.origin);
+        submitLine(tab);
+      }
+    }
+
     window.addEventListener("message", async event => {
-      if (!IS_EMBEDDED || event.source !== window.parent || event.origin !== window.location.origin || event.data.type !== "set-working-directory") return;
+      if (!IS_EMBEDDED || event.source !== window.parent || event.origin !== window.location.origin || !event.data) return;
+      if (ACODE_MODE && /^acode-/.test(event.data.type)) {
+        const acodeTab = tabs.find(item => item.id === activeTabId);
+        if (acodeTab) handleACodeMessage(acodeTab, event.data);
+        return;
+      }
+      if (event.data.type !== "set-working-directory") return;
       const tab = tabs.find(item => item.id === activeTabId);
       if (!tab || typeof event.data.path !== "string") return;
       try {
@@ -698,7 +749,7 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
           if (e.key === "Enter" || e.key === " ") {
             if (confirmFocusIndex === 1) {
               if (availableDEs[selectedDEIndex] === currentActiveDE) closeDmgr(mariowOSI18n.t("terminal.dmgr.no-changes", "dmgr: No changes made. Target DE is already active."));
-              else { dmgrActive = false; dmgrOverlay.style.display = "none"; window.parent.location.href = `/desktop/${availableDEs[selectedDEIndex]}`; }
+              else { dmgrActive = false; dmgrOverlay.style.display = "none"; DESKTOP.location.href = `/desktop/${availableDEs[selectedDEIndex]}`; }
             } else { closeDmgr(); }
           }
           renderDmgr2();
@@ -712,8 +763,10 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
 
       if (e.ctrlKey && !e.altKey && !e.metaKey) {
         const lower = key.toLowerCase();
-        if (lower === "t") { e.preventDefault(); createTab(); return; }
-        if (lower === "w") { e.preventDefault(); closeTab(tab.id); return; }
+        if (lower === "t") { e.preventDefault(); if (!ACODE_MODE) createTab(); return; }
+        if (lower === "w") { e.preventDefault(); if (!ACODE_MODE) closeTab(tab.id); return; }
+        // In ACode, Ctrl+` hides the terminal panel, as it does from the editor.
+        if (ACODE_MODE && key === "`") { e.preventDefault(); window.parent.postMessage({ type: "acode-close-terminal" }, window.location.origin); return; }
         if (lower === "l") { e.preventDefault(); if (!tab.busy && !tab.inputRequest) { clearScreen(tab); newPrompt(tab, tab.pendingSource ? `<span class="color-gray">&gt;&nbsp;</span>` : null); } return; }
         if (lower === "c") { if (hasTextSelection()) return; e.preventDefault(); cancelLine(tab); return; }
         // Ctrl+] is telnet's escape key: it ends the connection, like Ctrl+C.
@@ -1768,7 +1821,7 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
     // --- DMGR UI FUNCTIONS ---
     function launchDmgr() { 
       dmgrActive = true; dmgrScreen = 1; focusIndex = 0; selectedDEIndex = 0;
-      try { const parentUrl = window.parent.location.pathname; const currentFile = parentUrl.substring(parentUrl.lastIndexOf('/') + 1); if (currentFile) currentActiveDE = currentFile; } catch(e) {}
+      try { const parentUrl = DESKTOP.location.pathname; const currentFile = parentUrl.substring(parentUrl.lastIndexOf('/') + 1); if (currentFile) currentActiveDE = currentFile; } catch(e) {}
       const finished = new Promise(resolve => { dmgrDone = resolve; });
       fetch("/api/system/desktops").then(res => res.json()).then(data => {
           availableDEs = data.desktops || ["com.mariowos.desktop.html"]; const foundIdx = availableDEs.indexOf(currentActiveDE); if(foundIdx !== -1) selectedDEIndex = foundIdx;
@@ -1877,12 +1930,12 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
           return;
         }
         printLine(tab, mariowOSI18n.t("terminal.get.switching", "Switching DE immediately..."));
-        setTimeout(() => { window.parent.location.href = "/desktop/com.mariowos.twm.html"; }, 500);
+        setTimeout(() => { DESKTOP.location.href = "/desktop/com.mariowos.twm.html"; }, 500);
         tab.keepPrompt = true;
         return;
       }
       if (IS_EMBEDDED) {
-        window.parent.postMessage({ type: "app-installed-live", app: { appId: app.id, title: app.title, icon: app.icon, url: `apps/${app.id}/index.html` } }, window.location.origin);
+        DESKTOP.postMessage({ type: "app-installed-live", app: { appId: app.id, title: app.title, icon: app.icon, url: `apps/${app.id}/index.html` } }, window.location.origin);
       }
     }
 
@@ -1891,7 +1944,7 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
       try { await api("/api/store/uninstall", { appId }); } finally { stop(); }
       printLine(tab, mariowOSI18n.t("terminal.get.removed", "{pkg} removed successfully.", { pkg: appId }), "color-green");
       globalCatalog = [];
-      if (IS_EMBEDDED) window.parent.postMessage({ type: "app-uninstalled-live", appId }, window.location.origin);
+      if (IS_EMBEDDED) DESKTOP.postMessage({ type: "app-uninstalled-live", appId }, window.location.origin);
     }
 
     const GET_SUBCOMMANDS = {
@@ -2010,7 +2063,7 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
     async function availableApps() {
       const apps = {};
       let parentDocument = null;
-      try { parentDocument = IS_EMBEDDED ? window.parent.document : null; } catch (error) {}
+      try { parentDocument = IS_EMBEDDED ? DESKTOP.document : null; } catch (error) {}
       Object.entries(DESKTOP_APPS).forEach(([name, id]) => { if (!parentDocument || parentDocument.getElementById(id)) apps[name] = id; });
       try { (await installedApps()).forEach(app => { if (app.appId && app.appId !== "tiles") apps[String(app.appId).toLowerCase()] = app.appId; }); } catch (error) {}
       return apps;
@@ -2031,15 +2084,17 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
           : mariowOSI18n.t("terminal.open.no-app", "no app named '{name}'. Run 'open' to list the apps.", { name }));
       }
       if (!IS_EMBEDDED) throw new Error(mariowOSI18n.t("terminal.open.desktop-only", "apps can only be opened from the mariowOS desktop"));
-      window.parent.postMessage({ type: "open-app-from-store", appId: id }, window.location.origin);
+      DESKTOP.postMessage({ type: "open-app-from-store", appId: id }, window.location.origin);
       printLine(tab, mariowOSI18n.t("terminal.open.opening", "Opening {name}...", { name }), "color-gray");
     }
 
     function closeTerminal(tab) {
+      // In ACode, exit hides the terminal panel; the session stays for next time.
+      if (ACODE_MODE) { tab.keepPrompt = false; window.parent.postMessage({ type: "acode-close-terminal" }, window.location.origin); return; }
       if (tabs.length > 1) { closeTab(tab.id); return; }
       try {
         const popup = IS_EMBEDDED && window.frameElement && window.frameElement.closest(".popup");
-        if (popup) { window.parent.postMessage({ type: "close-app", appId: popup.id }, window.location.origin); return; }
+        if (popup) { DESKTOP.postMessage({ type: "close-app", appId: popup.id }, window.location.origin); return; }
       } catch (error) {}
       closeTab(tab.id);
     }
@@ -2047,7 +2102,7 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
     function currentDesktopName() {
       if (!IS_EMBEDDED) return "standalone";
       try {
-        const file = window.parent.location.pathname.split("/").pop();
+        const file = DESKTOP.location.pathname.split("/").pop();
         if (file === "com.mariowos.desktop.html") return "mariowOS Desktop";
         if (file === "com.mariowos.twm.html") return "Tiles";
         return file ? file.replace(/\.html$/, "") : "standalone";
@@ -2101,7 +2156,7 @@ This project use open source and free fonts sourced from Google Fonts. Google Fo
         else network = fetchT("network-none", "not connected");
       }
       let tablet = false;
-      try { tablet = IS_EMBEDDED && window.parent.document.body.classList.contains("tablet-mode"); } catch (error) {}
+      try { tablet = IS_EMBEDDED && DESKTOP.document.body.classList.contains("tablet-mode"); } catch (error) {}
       const desktop = currentDesktopName() + (tablet ? ` (${fetchT("tablet-mode", "tablet mode")})` : "");
       const sections = [
         { title: fetchT("section-system", "System"), rows: [

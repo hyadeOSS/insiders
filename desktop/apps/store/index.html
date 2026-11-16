@@ -7,22 +7,26 @@
   <script src="/desktop/assets/i18n.js"></script>
   <script src="/desktop/assets/accent.js"></script>
   <link href="/desktop/assets/fonts/fonts.css" rel="stylesheet">
-  <link rel="stylesheet" href="/desktop/assets/fonts/fonts.css"/>
-  
+
   <style>
     /* Shared mariowOS app language: the same glass sidebar, accent, radii and
        type scale used by Files and Music, so the Store feels part of the system. */
     :root {
       --accent: var(--sys-accent);
       --text: #ffffff;
-      --text-secondary: rgba(255, 255, 255, 0.5);
+      --text-secondary: rgba(255, 255, 255, 0.55);
       --text-dim: rgba(255, 255, 255, 0.35);
       --sidebar: rgba(22, 22, 25, 0.65);
       --hover: rgba(255, 255, 255, 0.08);
       --surface: rgba(255, 255, 255, 0.05);
-      --surface-hover: rgba(255, 255, 255, 0.09);
+      --surface-hover: rgba(255, 255, 255, 0.08);
       --glass-border: rgba(255, 255, 255, 0.1);
+      --hairline: rgba(255, 255, 255, 0.06);
       --field-bg: rgba(0, 0, 0, 0.25);
+      --insider: #ffb340;
+      --insider-bg: rgba(255, 159, 10, 0.16);
+      --danger: #ff453a;
+      --ok: #32d74b;
       --spring: cubic-bezier(0.16, 1, 0.3, 1);
 
       --radius-sm: 8px;
@@ -32,10 +36,11 @@
     }
 
     * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+    [hidden] { display: none !important; }
+    :focus-visible { outline: 2px solid var(--sys-accent-text); outline-offset: 2px; }
 
     body {
       margin: 0;
-      padding: 0;
       display: flex;
       height: 100vh;
       background: transparent;
@@ -46,10 +51,12 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    button { font-family: inherit; }
+
     /* ─────────────── Sidebar ─────────────── */
     .sidebar {
-      width: 250px;
-      flex: 0 0 250px;
+      width: 230px;
+      flex: 0 0 230px;
       background: var(--sidebar);
       backdrop-filter: blur(40px);
       -webkit-backdrop-filter: blur(40px);
@@ -62,15 +69,10 @@
       z-index: 10;
     }
 
-    .sidebar-header {
-      padding: 12px 8px 10px;
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.4px;
-    }
+    .sidebar-header { padding: 12px 8px 10px; font-size: 20px; font-weight: 600; letter-spacing: -0.4px; }
 
     .sidebar-heading {
-      padding: 12px 10px 4px;
+      padding: 14px 10px 4px;
       color: var(--text-dim);
       font-size: 10px;
       font-weight: 600;
@@ -85,14 +87,26 @@
       padding: 6px 8px;
       border-radius: var(--radius-md);
       font-size: 13px;
-      font-weight: 400;
       color: var(--text);
       cursor: pointer;
       transition: background 180ms ease;
     }
-
     .nav-item:hover:not(.active) { background: rgba(255, 255, 255, 0.1); }
     .nav-item.active { background: var(--accent); font-weight: 500; color: var(--sys-accent-on); }
+    .nav-item .title { flex: 1; }
+
+    .nav-count {
+      min-width: 18px;
+      padding: 0 6px;
+      border-radius: 100px;
+      background: var(--danger);
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: 600;
+      line-height: 18px;
+      text-align: center;
+    }
+    .nav-count[hidden] { display: none; }
 
     .icon-bg {
       display: flex;
@@ -104,21 +118,15 @@
       border-radius: 6px;
       color: #fff;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-      overflow: hidden;
     }
-    .icon-bg .material-symbols-outlined { font-size: 15px; font-weight: 400; }
-
+    .icon-bg .material-symbols-outlined { font-size: 15px; }
     .c-discover { background: linear-gradient(180deg, #0a84ff, #007aff); }
+    .c-library  { background: linear-gradient(180deg, #5e5ce6, #4b49c4); }
+    .c-updates  { background: linear-gradient(180deg, #30d158, #24a845); }
     .c-publish  { background: linear-gradient(180deg, #ff9f0a, #d98608); }
+    .c-settings { background: linear-gradient(180deg, #8e8e93, #636366); }
 
-    .sidebar-note {
-      margin-top: auto;
-      padding: 10px;
-      color: var(--text-dim);
-      font-size: 11px;
-      line-height: 1.5;
-      text-align: center;
-    }
+    .sidebar-note { margin-top: auto; padding: 10px; color: var(--text-dim); font-size: 11px; line-height: 1.5; }
 
     /* ─────────────── Chrome ─────────────── */
     .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
@@ -134,10 +142,10 @@
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     }
 
-    .nav-arrows { display: flex; gap: 4px; }
-    .nav-arrow-btn {
+    .icon-btn {
       width: 32px;
       height: 32px;
+      flex: 0 0 32px;
       border: none;
       border-radius: var(--radius-sm);
       background: transparent;
@@ -148,12 +156,13 @@
       cursor: pointer;
       transition: background 0.15s, transform 0.2s;
     }
-    .nav-arrow-btn:hover:not(:disabled) { background: var(--hover); }
-    .nav-arrow-btn:active:not(:disabled) { transform: scale(0.9); }
-    .nav-arrow-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .icon-btn:hover:not(:disabled) { background: var(--hover); }
+    .icon-btn:active:not(:disabled) { transform: scale(0.9); }
+    .icon-btn:disabled { opacity: 0.3; cursor: default; }
 
     .search-bar {
       flex: 1;
+      max-width: 520px;
       height: 32px;
       display: flex;
       align-items: center;
@@ -165,73 +174,66 @@
       transition: border-color 0.2s;
     }
     .search-bar:focus-within { border-color: var(--sys-accent-text); }
-    /* Your account: opens Settings on its page. */
-    .account-btn { width: 32px; height: 32px; flex: 0 0 32px; margin-left: 8px; padding: 0; border: none; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.08); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
+    .search-bar .material-symbols-outlined { font-size: 17px; color: var(--text-secondary); }
+    .search-bar input { flex: 1; min-width: 0; border: none; background: transparent; color: var(--text); font-family: inherit; font-size: 13px; }
+    .search-bar input::placeholder { color: var(--text-dim); }
+
+    .account-btn { width: 32px; height: 32px; flex: 0 0 32px; margin-left: auto; padding: 0; border: none; border-radius: 50%; overflow: hidden; background: rgba(255,255,255,0.08); cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; }
     .account-btn:hover { box-shadow: 0 0 0 2px var(--sys-accent-text); }
     .account-btn:active { transform: scale(0.92); }
     .account-btn img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .search-bar .material-symbols-outlined { font-size: 17px; color: var(--text-secondary); }
-    .search-bar input {
-      flex: 1;
-      min-width: 0;
-      border: none;
-      background: transparent;
-      color: var(--text);
-      font-family: inherit;
-      font-size: 13px;
-    }
-    .search-bar input::placeholder { color: var(--text-dim); }
 
-    .main { flex: 1; overflow-y: auto; background: transparent; }
+    .main { flex: 1; overflow-y: auto; }
 
-    .view { display: none; padding: 24px 28px 40px; }
+    .view { display: none; max-width: 980px; padding: 26px 30px 48px; }
     .view.active { display: block; animation: viewIn 0.3s var(--spring) both; }
-    @keyframes viewIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes viewIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
-    /* ─────────────── Discover ─────────────── */
-    .hero-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 14px; margin-bottom: 28px; }
+    .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .page-title { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
+    .page-sub { margin: 2px 0 0; color: var(--text-secondary); font-size: 12.5px; }
 
-    .hero-card {
-      position: relative;
-      height: 132px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      overflow: hidden;
+    .section { margin-top: 28px; }
+    .section:first-of-type { margin-top: 0; }
+    .section-title { margin: 0 0 10px; font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+
+    /* Filter chips (Discover) */
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      padding: 5px 12px;
       border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      background: var(--surface);
+      border-radius: 100px;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 12px;
       cursor: pointer;
-      transition: background 0.2s, transform 0.2s var(--spring);
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
     }
-    .hero-card:hover { background: var(--surface-hover); transform: translateY(-2px); }
-    .hero-card:nth-child(1) { background: linear-gradient(135deg, color-mix(in srgb, var(--sys-accent) 22%, transparent), transparent 70%), var(--surface); }
-    .hero-card:nth-child(2) { background: linear-gradient(135deg, rgba(255, 159, 10, 0.18), transparent 70%), var(--surface); }
-    .hero-card h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.3px; z-index: 2; }
-    .hero-card p { margin: 6px 0 0; max-width: 85%; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); z-index: 2; }
-    .hero-emoji { position: absolute; right: 14px; bottom: -6px; font-size: 52px; opacity: 0.85; }
+    .chip:hover { color: var(--text); }
+    .chip[aria-pressed="true"] { background: rgba(255, 255, 255, 0.12); border-color: transparent; color: var(--text); }
 
-    .section-title { margin: 0 0 14px; font-size: 17px; font-weight: 600; letter-spacing: -0.2px; }
+    /* ─────────────── App list ─────────────── */
+    .app-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      column-gap: 24px;
+    }
 
-    .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; }
-
-    .app-card {
+    .app-row {
       display: flex;
       align-items: center;
       gap: 14px;
-      padding: 12px 14px;
-      border: 1px solid transparent;
-      border-radius: var(--radius-lg);
-      background: var(--surface);
+      padding: 12px 8px;
+      border-bottom: 1px solid var(--hairline);
+      border-radius: var(--radius-md);
       cursor: pointer;
-      transition: background 0.2s, border-color 0.2s, transform 0.2s var(--spring);
+      transition: background 0.15s;
     }
-    .app-card:hover { background: var(--surface-hover); border-color: var(--glass-border); transform: translateY(-2px); }
+    .app-row:hover { background: var(--hover); }
 
-    .card-icon {
-      width: 50px;
-      height: 50px;
+    .app-icon {
+      width: 48px;
+      height: 48px;
       flex-shrink: 0;
       display: flex;
       align-items: center;
@@ -242,132 +244,168 @@
       background: var(--field-bg);
       font-size: 26px;
     }
+    .app-icon img { width: 100%; height: 100%; object-fit: cover; }
 
-    .card-info { flex: 1; min-width: 0; }
-    .card-title { margin: 0; font-size: 13.5px; font-weight: 500; letter-spacing: -0.2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .card-desc { margin: 2px 0 0; font-size: 11.5px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .app-meta { flex: 1; min-width: 0; }
+    .app-name-line { display: flex; align-items: center; gap: 6px; min-width: 0; }
+    .app-name { margin: 0; font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .app-sub { margin: 1px 0 0; font-size: 11.5px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .btn-get {
+    .badge {
       flex-shrink: 0;
-      padding: 6px 16px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--insider-bg);
+      color: var(--insider);
+      font-size: 9.5px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      line-height: 15px;
+      text-transform: uppercase;
+    }
+    .badge.neutral { background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); }
+
+    .pill-btn {
+      flex-shrink: 0;
+      min-width: 66px;
+      padding: 5px 14px;
       border: none;
       border-radius: 100px;
       background: rgba(255, 255, 255, 0.1);
       color: var(--sys-accent-text);
-      font-family: inherit;
       font-size: 11.5px;
       font-weight: 600;
-      letter-spacing: 0.3px;
       cursor: pointer;
       transition: background 0.2s, transform 0.1s;
     }
-    .btn-get:hover { background: rgba(255, 255, 255, 0.16); }
-    .btn-get:active { transform: scale(0.95); }
-    .btn-get.installed { color: var(--text); }
+    .pill-btn:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+    .pill-btn:active:not(:disabled) { transform: scale(0.95); }
+    .pill-btn:disabled { color: var(--text-dim); cursor: default; }
+    .pill-btn.quiet { color: var(--text); }
+
+    .empty {
+      padding: 48px 0;
+      color: var(--text-secondary);
+      font-size: 13px;
+      text-align: center;
+    }
+    .empty .material-symbols-outlined { display: block; margin-bottom: 8px; font-size: 32px; color: var(--text-dim); }
+
+    .skeleton .app-icon, .skeleton .sk-line { background: rgba(255, 255, 255, 0.06); border-color: transparent; animation: pulse 1.4s ease-in-out infinite; }
+    .sk-line { height: 10px; border-radius: 4px; margin: 4px 0; }
+    @keyframes pulse { 50% { opacity: 0.45; } }
 
     /* ─────────────── App page ─────────────── */
-    .btn-back {
-      display: none;
-      align-items: center;
-      gap: 4px;
-      margin-bottom: 18px;
-      padding: 0;
-      border: none;
-      background: transparent;
-      color: var(--text-secondary);
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: color 0.2s;
-    }
-    .btn-back:hover { color: var(--text); }
-    .btn-back .material-symbols-outlined { font-size: 18px; }
-
-    .lp-header {
-      display: flex;
-      align-items: center;
-      gap: 22px;
-      margin-bottom: 16px;
-      padding: 26px;
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      background: var(--surface);
-    }
-
-    .lp-icon {
-      width: 92px;
-      height: 92px;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      border: 1px solid var(--glass-border);
-      border-radius: var(--squircle);
-      background: var(--field-bg);
-      font-size: 46px;
-    }
-
+    .lp-header { display: flex; align-items: center; gap: 22px; padding-bottom: 22px; border-bottom: 1px solid var(--hairline); }
+    .lp-icon { width: 96px; height: 96px; font-size: 48px; }
     .lp-info { flex: 1; min-width: 0; }
-    .lp-title { margin: 0 0 4px; font-size: 25px; font-weight: 600; letter-spacing: -0.4px; }
-    .lp-dev { margin: 0 0 18px; color: var(--sys-accent-text); font-size: 13px; font-weight: 500; }
-    .lp-actions { display: flex; align-items: center; gap: 10px; }
+    .lp-title-line { display: flex; align-items: center; gap: 8px; }
+    .lp-title { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+    .lp-dev { margin: 2px 0 14px; color: var(--sys-accent-text); font-size: 13px; font-weight: 500; }
+    .lp-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .lp-error { margin-top: 10px; color: var(--danger); font-size: 12.5px; }
+    .lp-error:empty { display: none; }
 
-    .btn-action {
-      padding: 9px 28px;
+    .btn {
+      padding: 8px 22px;
       border: none;
       border-radius: 100px;
-      font-family: inherit;
       font-size: 12.5px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s, transform 0.1s;
+      transition: background 0.2s, transform 0.1s, opacity 0.2s;
     }
-    .btn-action:active { transform: scale(0.96); }
-    .btn-action.primary { background: var(--accent); color: var(--sys-accent-on); }
-    .btn-action.primary:hover { background: color-mix(in srgb, var(--sys-accent) 85%, black); color: var(--sys-accent-on); }
-    .btn-action.primary:disabled { background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); cursor: not-allowed; }
+    .btn:active:not(:disabled) { transform: scale(0.96); }
+    .btn.primary { background: var(--accent); color: var(--sys-accent-on); }
+    .btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--sys-accent) 85%, black); }
+    .btn.secondary { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+    .btn.secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); }
+    .btn.danger { background: transparent; color: var(--danger); padding-left: 12px; padding-right: 12px; }
+    .btn.danger:hover:not(:disabled) { background: rgba(255, 69, 58, 0.12); }
+    .btn:disabled { opacity: 0.5; cursor: default; }
 
-    .btn-uninstall {
-      padding: 8px 22px;
-      border: 1px solid rgba(255, 69, 58, 0.4);
-      border-radius: 100px;
-      background: transparent;
-      color: #ff453a;
-      font-family: inherit;
-      font-size: 12.5px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .btn-uninstall:hover { background: rgba(255, 69, 58, 0.12); }
+    .link-btn { padding: 0; border: none; background: none; color: var(--sys-accent-text); font-size: 12px; cursor: pointer; }
+    .link-btn:hover { text-decoration: underline; }
 
-    .lp-error { margin-top: 10px; color: #ff453a; font-size: 12.5px; }
+    .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 14px 0; border-bottom: 1px solid var(--hairline); }
+    .fact { padding: 0 14px; border-left: 1px solid var(--hairline); min-width: 0; }
+    .fact:first-child { padding-left: 0; border-left: none; }
+    .fact-label { color: var(--text-dim); font-size: 10.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+    .fact-value { margin-top: 2px; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fact-value a { color: var(--text); text-decoration: none; }
+    .fact-value a:hover { color: var(--sys-accent-text); }
 
-    .lp-desc-container {
-      padding: 26px;
+    /* Screenshots: a horizontal strip, click to enlarge. */
+    .shots { display: flex; gap: 12px; margin-top: 20px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 2px; }
+    .shots:empty { display: none; }
+    .shot {
+      flex: 0 0 auto;
+      height: 220px;
+      max-width: 420px;
+      padding: 0;
       border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      background: var(--surface);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--field-bg);
+      cursor: zoom-in;
+      scroll-snap-align: start;
     }
-    .lp-desc-title { margin: 0 0 12px; font-size: 15px; font-weight: 600; }
-    .lp-desc { margin: 0; color: var(--text-secondary); font-size: 12.5px; line-height: 1.65; }
+    .shot img { display: block; height: 100%; width: auto; max-width: 420px; object-fit: cover; }
+    .shot.loading { width: 340px; animation: pulse 1.4s ease-in-out infinite; }
 
-    /* ─────────────── Publish ─────────────── */
-    .pub-card {
-      max-width: 620px;
-      padding: 26px;
-      border: 1px solid var(--glass-border);
-      border-radius: var(--radius-lg);
-      background: var(--surface);
-    }
+    .lightbox { display: none; position: fixed; inset: 0; z-index: 10000; align-items: center; justify-content: center; gap: 12px; background: rgba(0, 0, 0, 0.85); }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: calc(100% - 140px); max-height: calc(100% - 60px); border-radius: var(--radius-md); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); user-select: none; }
+    .lightbox .icon-btn { background: rgba(255, 255, 255, 0.1); }
+    .lightbox .lb-close { position: absolute; top: 14px; right: 14px; }
+    .lightbox .lb-count { position: absolute; bottom: 14px; left: 0; right: 0; text-align: center; color: var(--text-secondary); font-size: 12px; }
 
-    .pub-input {
+    /* Screenshot picker (Submit) */
+    .shot-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+    .thumb { position: relative; width: 96px; height: 64px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); overflow: hidden; background: var(--field-bg); }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb .remove { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; padding: 0; border: none; border-radius: 50%; background: rgba(0, 0, 0, 0.7); color: #fff; font-size: 14px; line-height: 20px; cursor: pointer; }
+    .thumb.auto { opacity: 0.75; }
+    .thumb-add { width: 96px; height: 64px; border: 1px dashed var(--glass-border); border-radius: var(--radius-sm); background: transparent; color: var(--text-secondary); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 11px; cursor: pointer; }
+    .thumb-add:hover { color: var(--text); border-color: var(--text-secondary); }
+    .thumb-add .material-symbols-outlined { font-size: 18px; }
+    .preview-shot { display: block; width: 100%; height: 120px; margin-top: 12px; border-radius: var(--radius-sm); object-fit: cover; border: 1px solid var(--glass-border); }
+
+    .share p { margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.55; }
+    .share ol { margin: 10px 0 0; padding-left: 18px; font-size: 12px; color: var(--text); }
+    .share li { margin-bottom: 10px; }
+    .share li::marker { color: var(--text-dim); }
+    .share-actions { display: flex; gap: 6px; margin-top: 6px; }
+    .btn.sm { padding: 5px 12px; font-size: 11.5px; }
+    .share-links { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+    .share-links a { display: flex; gap: 8px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: var(--text-secondary); font-size: 11px; line-height: 1.4; text-decoration: none; transition: background 0.15s; }
+    .share-links a:hover { background: var(--hover); }
+    .share-links a b { color: var(--text); font-weight: 500; font-size: 12px; }
+    .share-links .material-symbols-outlined { font-size: 18px; color: var(--sys-accent-text); }
+    .json-preview { margin: 10px 0 0; max-height: 160px; overflow: auto; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--field-bg); color: var(--text-secondary); font: 10.5px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-all; user-select: text; }
+
+    .lp-desc { margin: 20px 0 0; max-width: 680px; color: rgba(255, 255, 255, 0.78); font-size: 13px; line-height: 1.7; white-space: pre-wrap; user-select: text; }
+
+    /* ─────────────── Updates ─────────────── */
+    .update-row .app-sub b { color: var(--text); font-weight: 500; }
+
+    /* ─────────────── Forms (Submit, Settings) ─────────────── */
+    .submit-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 28px; align-items: start; }
+
+    .form { display: flex; flex-direction: column; gap: 16px; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .label { font-size: 12px; font-weight: 500; color: var(--text); }
+    .label .opt { color: var(--text-dim); font-weight: 400; }
+    .hint { font-size: 11.5px; color: var(--text-dim); line-height: 1.5; }
+    .field.invalid .input { border-color: var(--danger); }
+    .field-error { font-size: 11.5px; color: var(--danger); }
+    .field-error:empty { display: none; }
+
+    .input {
       width: 100%;
-      min-height: 40px;
-      margin-bottom: 14px;
-      padding: 9px 12px;
+      min-height: 36px;
+      padding: 8px 11px;
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-sm);
       background: var(--field-bg);
@@ -375,43 +413,86 @@
       font-family: inherit;
       font-size: 13px;
       transition: border-color 0.2s;
+      user-select: text;
     }
-    .pub-input:focus { border-color: var(--sys-accent-text); }
-    .pub-input::placeholder { color: var(--text-dim); }
-    textarea.pub-input { resize: vertical; min-height: 96px; }
+    .input:focus { border-color: var(--sys-accent-text); }
+    .input::placeholder { color: var(--text-dim); }
+    textarea.input { resize: vertical; min-height: 92px; line-height: 1.5; }
+    .input.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
 
-    .publish-status { margin-top: 14px; font-size: 12.5px; font-weight: 500; text-align: center; }
-    .loading-text { grid-column: 1 / -1; padding: 40px 0; color: var(--text-secondary); font-size: 13px; text-align: center; }
+    .segmented { display: inline-flex; padding: 2px; border-radius: var(--radius-sm); background: var(--field-bg); border: 1px solid var(--glass-border); }
+    .segmented button { padding: 5px 14px; border: none; border-radius: 6px; background: transparent; color: var(--text-secondary); font-size: 12px; cursor: pointer; }
+    .segmented button[aria-pressed="true"] { background: rgba(255, 255, 255, 0.14); color: var(--text); }
 
-    /* ─────────────── EULA ─────────────── */
-    #store-eula-overlay {
+    .icon-picker { display: flex; align-items: center; gap: 10px; }
+    .icon-picker .app-icon { width: 40px; height: 40px; font-size: 22px; }
+    .icon-picker .input { flex: 1; }
+
+    details.more summary { cursor: pointer; font-size: 12px; color: var(--text-secondary); list-style: none; }
+    details.more summary::before { content: "+ "; }
+    details.more[open] summary::before { content: "− "; }
+    details.more .field { margin-top: 10px; }
+
+    .form-footer { display: flex; align-items: center; gap: 12px; }
+    .form-status { font-size: 12.5px; color: var(--text-secondary); }
+    .form-status.ok { color: var(--ok); }
+    .form-status.err { color: var(--danger); }
+
+    .preview { position: sticky; top: 0; }
+    .preview-card { padding: 14px; border: 1px solid var(--glass-border); border-radius: var(--radius-lg); background: var(--surface); }
+    .preview-card .app-row { padding: 0; border: none; cursor: default; }
+    .preview-card .app-row:hover { background: none; }
+    .preview-desc { margin: 12px 0 0; color: var(--text-secondary); font-size: 11.5px; line-height: 1.55; white-space: pre-wrap; max-height: 140px; overflow: hidden; }
+
+    .settings-group { border: 1px solid var(--glass-border); border-radius: var(--radius-lg); background: var(--surface); }
+    .settings-row { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-top: 1px solid var(--hairline); }
+    .settings-row:first-child { border-top: none; }
+    .settings-row .text { flex: 1; min-width: 0; }
+    .settings-row .name { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+    .settings-row .desc { margin-top: 2px; font-size: 11.5px; color: var(--text-secondary); line-height: 1.5; }
+
+    .switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; }
+    .switch input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+    .switch span { position: absolute; inset: 0; border-radius: 100px; background: rgba(255, 255, 255, 0.16); transition: background 0.2s; pointer-events: none; }
+    .switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform 0.25s var(--spring); }
+    .switch input:checked + span { background: var(--ok); }
+    .switch input:checked + span::after { transform: translateX(16px); }
+    .switch input:disabled { cursor: default; }
+    .switch input:disabled + span { opacity: 0.5; }
+
+    .about { margin-top: 32px; color: var(--text-dim); font-size: 11.5px; line-height: 1.6; }
+
+    /* ─────────────── Dialogs ─────────────── */
+    .overlay {
       display: none;
       position: fixed;
       inset: 0;
       z-index: 9999;
       align-items: center;
       justify-content: center;
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(0, 0, 0, 0.55);
     }
+    .overlay.open { display: flex; }
 
-    .store-eula-modal {
+    .modal {
       width: 420px;
-      max-width: 90%;
+      max-width: calc(100% - 32px);
       padding: 22px;
       border: 1px solid var(--glass-border);
       border-radius: var(--radius-lg);
-      background: rgba(24, 25, 28, 0.95);
+      background: rgba(24, 25, 28, 0.96);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-      font-family: inherit;
       animation: viewIn 0.25s var(--spring) both;
     }
-    .store-eula-modal h2 { margin: 0 0 6px; font-size: 16px; font-weight: 600; }
+    .modal h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; }
+    .modal p { margin: 0; font-size: 12.5px; color: var(--text-secondary); line-height: 1.5; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 
-    .store-eula-box {
-      height: 110px;
-      margin: 14px 0;
+    .eula-box {
+      height: 160px;
+      margin-top: 14px;
       padding: 12px;
       overflow-y: auto;
       border: 1px solid var(--glass-border);
@@ -425,7 +506,32 @@
       user-select: text;
     }
 
-    .store-eula-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    .choices { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+    .choice {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius-md);
+      background: var(--surface);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .choice:hover { background: var(--surface-hover); }
+    .choice:has(input:checked) { border-color: var(--sys-accent-text); background: color-mix(in srgb, var(--sys-accent) 10%, transparent); }
+    .choice input { margin: 3px 0 0; accent-color: var(--sys-accent); }
+    .choice .name { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; }
+    .choice .ver { margin-left: auto; color: var(--text-dim); font-size: 11.5px; font-weight: 400; }
+    .choice .desc { margin-top: 2px; font-size: 11.5px; color: var(--text-secondary); }
+    .choice-body { flex: 1; min-width: 0; }
+
+    @media (max-width: 760px) {
+      .submit-layout { grid-template-columns: 1fr; }
+      .preview { position: static; }
+      .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 12px; }
+      .fact:nth-child(3) { padding-left: 0; border-left: none; }
+    }
 
     * { scrollbar-width: none; }
     *::-webkit-scrollbar { display: none; }
@@ -437,20 +543,30 @@
     <div class="sidebar-header">Store</div>
 
     <div class="sidebar-heading" data-i18n="store.nav.browse">Browse</div>
-    <div class="nav-item active" id="nav-discover" onclick="switchView('home')">
+    <div class="nav-item active" data-view="home" role="button" tabindex="0">
       <div class="icon-bg c-discover"><span class="material-symbols-outlined">explore</span></div>
       <span class="title" data-i18n="store.nav.discover">Discover</span>
     </div>
-    <div class="nav-item" id="nav-publish" onclick="switchView('publish')">
-      <div class="icon-bg c-publish"><span class="material-symbols-outlined">developer_mode</span></div>
+    <div class="nav-item" data-view="library" role="button" tabindex="0">
+      <div class="icon-bg c-library"><span class="material-symbols-outlined">apps</span></div>
+      <span class="title" data-i18n="store.nav.library">Installed</span>
+    </div>
+    <div class="nav-item" data-view="updates" role="button" tabindex="0">
+      <div class="icon-bg c-updates"><span class="material-symbols-outlined">download</span></div>
+      <span class="title" data-i18n="store.nav.updates">Updates</span>
+      <span class="nav-count" id="updatesCount" hidden></span>
+    </div>
+
+    <div class="sidebar-heading" data-i18n="store.nav.developers">Developers</div>
+    <div class="nav-item" data-view="publish" role="button" tabindex="0">
+      <div class="icon-bg c-publish"><span class="material-symbols-outlined">upload</span></div>
       <span class="title" data-i18n="store.nav.submit">Submit an app</span>
     </div>
 
-    <!-- Nuova Sezione Settings -->
     <div class="sidebar-heading" data-i18n="store.nav.system">System</div>
-    <div class="nav-item" id="nav-settings" onclick="switchView('settings')">
-      <div class="icon-bg" style="background: linear-gradient(180deg, #8e8e93, #636366);"><span class="material-symbols-outlined">settings</span></div>
-      <span class="title" data-i18n="common.settings">Settings</span>
+    <div class="nav-item" data-view="settings" role="button" tabindex="0">
+      <div class="icon-bg c-settings"><span class="material-symbols-outlined">tune</span></div>
+      <span class="title" data-i18n="store.nav.sources">Sources</span>
     </div>
 
     <div class="sidebar-note" data-i18n="store.nav.note">Apps are installed from their public source repository.</div>
@@ -458,547 +574,1106 @@
 
   <div class="main-wrapper">
     <div class="top-bar">
-      <div class="nav-arrows">
-        <button class="nav-arrow-btn" id="navBack" onclick="switchView('home')" title="Back to Discover" data-i18n-title="store.nav.back-to-discover"><span class="material-symbols-outlined">chevron_left</span></button>
-        <!-- Forward has nowhere to go in a two-level store, so it stays disabled. -->
-        <button class="nav-arrow-btn" disabled title="Forward" data-i18n-title="store.nav.forward"><span class="material-symbols-outlined">chevron_right</span></button>
-      </div>
+      <button class="icon-btn" id="navBack" type="button" disabled title="Back" data-i18n-title="common.back"><span class="material-symbols-outlined">chevron_left</span></button>
       <div class="search-bar">
         <span class="material-symbols-outlined">search</span>
-        <input type="text" id="searchInput" placeholder="Search apps and games..." data-i18n-placeholder="store.search">
+        <input type="search" id="searchInput" placeholder="Search apps" data-i18n-placeholder="store.search" autocomplete="off">
       </div>
       <button class="account-btn" id="accountBtn" type="button" title="Account" data-i18n-title="store.account">
-        <img id="accountAvatar" alt="" src="/api/users/avatar/me" onerror="this.onerror=null;this.src='/desktop/assets/avatar.png'">
+        <img alt="" src="/api/users/avatar/me" onerror="this.onerror=null;this.src='/desktop/assets/avatar.png'">
       </button>
     </div>
 
-    <div class="main">
-      <!-- Discover View -->
-      <div id="view-home" class="view active">
-        <div class="hero-grid" id="heroSection">
-          <div class="hero-card" onclick="switchView('publish')">
-            <div>
-              <h1 data-i18n="store.hero.build.title">Build for mariowOS</h1>
-              <p data-i18n="store.hero.build.text">Publish your own app to the Store straight from a GitHub repository.</p>
-            </div>
-            <div class="hero-emoji">✨</div>
+    <div class="main" id="main">
+      <!-- Discover -->
+      <section id="view-home" class="view active">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title" id="homeTitle" data-i18n="store.nav.discover">Discover</h1>
+            <p class="page-sub" id="homeSub"></p>
           </div>
-          <div class="hero-card" onclick="document.getElementById('searchInput').focus()">
-            <div>
-              <h1 data-i18n="store.hero.find.title">Find something new</h1>
-              <p data-i18n="store.hero.find.text">Search the catalog for utilities built for your device.</p>
-            </div>
-            <div class="hero-emoji">🏆</div>
+          <div class="chips" id="filterChips" role="group">
+            <button class="chip" type="button" data-filter="all" aria-pressed="true" data-i18n="store.filter.all">All</button>
+            <button class="chip" type="button" data-filter="stable" aria-pressed="false" data-i18n="store.filter.stable">Stable</button>
+            <button class="chip" type="button" data-filter="insiders" aria-pressed="false" data-i18n="store.filter.insider">Insider</button>
           </div>
         </div>
-        <h2 class="section-title" id="gridTitle">New & Updated</h2>
-        <div class="app-grid" id="appGrid">
-          <div class="loading-text" data-i18n="store.loading">Loading catalog...</div>
-        </div>
-      </div>
+        <div class="app-list" id="appGrid"></div>
+      </section>
 
-      <!-- App Landpage View -->
-      <div id="view-landpage" class="view">
-        <button class="btn-back" id="btnBack" onclick="switchView('home')">
-          <span class="material-symbols-outlined">arrow_back</span> <span data-i18n="common.back">Back</span>
-        </button>
+      <!-- Installed -->
+      <section id="view-library" class="view">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title" data-i18n="store.nav.library">Installed</h1>
+            <p class="page-sub" data-i18n="store.library.sub">Apps you got from the Store.</p>
+          </div>
+        </div>
+        <div class="app-list" id="libraryList"></div>
+      </section>
+
+      <!-- Updates -->
+      <section id="view-updates" class="view">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title" data-i18n="store.nav.updates">Updates</h1>
+            <p class="page-sub" id="updatesSub"></p>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn secondary" id="btnCheckUpdates" type="button" data-i18n="store.updates.check">Check now</button>
+            <button class="btn primary" id="btnUpdateAll" type="button" hidden data-i18n="store.updates.all">Update all</button>
+          </div>
+        </div>
+        <div class="app-list" id="updatesList" style="grid-template-columns: 1fr;"></div>
+      </section>
+
+      <!-- App page -->
+      <section id="view-landpage" class="view">
         <div class="lp-header">
-          <div class="lp-icon" id="lpIcon"></div>
+          <div class="app-icon lp-icon" id="lpIcon"></div>
           <div class="lp-info">
-            <h1 class="lp-title" id="lpTitle"></h1>
+            <div class="lp-title-line"><h1 class="lp-title" id="lpTitle"></h1><span id="lpBadge"></span></div>
             <p class="lp-dev" id="lpDev"></p>
-            <div class="lp-actions">
-              <button id="btnInstall" class="btn-action primary"></button>
-              <button id="btnUninstall" class="btn-uninstall" style="display: none;"></button>
+            <div class="lp-actions" id="lpActions"></div>
+            <div id="installError" class="lp-error" role="alert"></div>
+          </div>
+        </div>
+        <div class="facts">
+          <div class="fact"><div class="fact-label" data-i18n="store.fact.version">Version</div><div class="fact-value" id="factVersion">—</div></div>
+          <div class="fact"><div class="fact-label" data-i18n="store.fact.builds">Builds</div><div class="fact-value" id="factBuilds">—</div></div>
+          <div class="fact"><div class="fact-label" data-i18n="store.fact.developer">Developer</div><div class="fact-value" id="factDev">—</div></div>
+          <div class="fact"><div class="fact-label" data-i18n="store.fact.source">Source</div><div class="fact-value" id="factSource">—</div></div>
+        </div>
+        <div class="shots" id="lpShots"></div>
+        <p id="lpDesc" class="lp-desc"></p>
+      </section>
+
+      <!-- Submit -->
+      <section id="view-publish" class="view">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title" data-i18n="store.publish.title">Submit an app</h1>
+            <p class="page-sub" data-i18n="store.publish.sub">Paste your repository and the rest fills in. Add it here to test it, then send it to the official Store.</p>
+          </div>
+        </div>
+        <div class="submit-layout">
+          <form class="form" id="publishForm" novalidate>
+            <div class="field" data-field="repoUrl">
+              <label class="label" for="pubRepo" data-i18n="store.publish.repo-label">Repository</label>
+              <input type="url" id="pubRepo" class="input mono" placeholder="https://github.com/you/your-app" spellcheck="false" autocomplete="off">
+              <div class="hint" data-i18n="store.publish.repo-hint">A GitHub repository with an index.html, or a raw link to a single .html file.</div>
+              <div class="field-error"></div>
             </div>
-            <div id="installError" class="lp-error"></div>
+
+            <div class="field-row">
+              <div class="field" data-field="title">
+                <label class="label" for="pubTitle" data-i18n="store.publish.app-name">Name</label>
+                <input type="text" id="pubTitle" class="input" maxlength="80" autocomplete="off">
+                <div class="field-error"></div>
+              </div>
+              <div class="field" data-field="developer">
+                <label class="label" for="pubDev" data-i18n="store.publish.developer">Developer</label>
+                <input type="text" id="pubDev" class="input" maxlength="80" autocomplete="off">
+                <div class="field-error"></div>
+              </div>
+            </div>
+
+            <div class="field" data-field="desc">
+              <label class="label" for="pubDesc" data-i18n="store.publish.desc">Description</label>
+              <textarea id="pubDesc" class="input" maxlength="4000" rows="4"></textarea>
+              <div class="field-error"></div>
+            </div>
+
+            <div class="field-row">
+              <div class="field">
+                <span class="label" data-i18n="store.publish.channel">Channel</span>
+                <div class="segmented" id="pubChannel" role="group">
+                  <button type="button" data-channel="stable" aria-pressed="true" data-i18n="store.channel.stable">Stable</button>
+                  <button type="button" data-channel="insiders" aria-pressed="false" data-i18n="store.channel.insider">Insider</button>
+                </div>
+                <div class="hint" id="pubChannelHint"></div>
+              </div>
+              <div class="field">
+                <span class="label"><span data-i18n="store.publish.icon">Icon</span> <span class="opt" data-i18n="store.publish.optional">(optional)</span></span>
+                <div class="icon-picker">
+                  <div class="app-icon" id="pubIconPreview">📦</div>
+                  <input type="text" id="pubIconText" class="input" maxlength="8" placeholder="Emoji" data-i18n-placeholder="store.publish.emoji-short" autocomplete="off">
+                  <button type="button" class="icon-btn" id="pubIconPick" title="Upload image" data-i18n-title="store.publish.upload"><span class="material-symbols-outlined">image</span></button>
+                  <input type="file" id="pubIconFile" accept="image/png, image/jpeg" hidden>
+                </div>
+                <div class="hint" data-i18n="store.publish.icon-hint">Empty uses icon.png from the repository.</div>
+              </div>
+            </div>
+
+            <div class="field">
+              <span class="label"><span data-i18n="store.publish.screenshots">Screenshots</span> <span class="opt" data-i18n="store.publish.optional">(optional)</span></span>
+              <div class="shot-picker" id="pubShots"></div>
+              <input type="file" id="pubShotFiles" accept="image/png, image/jpeg, image/webp" multiple hidden>
+              <div class="hint" id="pubShotsHint"></div>
+            </div>
+
+            <details class="more" id="pubMore">
+              <summary data-i18n="store.publish.advanced">ID and license</summary>
+              <div class="field" data-field="id">
+                <label class="label" for="pubId" data-i18n="store.publish.bundle-id">App ID</label>
+                <input type="text" id="pubId" class="input mono" maxlength="64" spellcheck="false" autocomplete="off">
+                <div class="hint" data-i18n="store.publish.id-hint">The folder the app installs into. Letters, digits, - and _.</div>
+                <div class="field-error"></div>
+              </div>
+              <div class="field">
+                <label class="label" for="pubEula"><span data-i18n="store.publish.eula-label">License agreement</span> <span class="opt" data-i18n="store.publish.optional">(optional)</span></label>
+                <textarea id="pubEula" class="input" rows="3"></textarea>
+                <div class="hint" data-i18n="store.publish.eula-hint">Empty uses EULA, LICENSE or LICENSE.md from the repository, if there is one.</div>
+              </div>
+            </details>
+
+            <div class="form-footer">
+              <button class="btn primary" type="submit" id="btnPublish" data-i18n="store.publish.submit">Add to Store</button>
+              <span class="form-status" id="publishStatus" role="status"></span>
+            </div>
+          </form>
+
+          <aside class="preview">
+            <div class="section-title" data-i18n="store.publish.preview">Preview</div>
+            <div class="preview-card">
+              <div class="app-row">
+                <div class="app-icon" id="prevIcon">📦</div>
+                <div class="app-meta">
+                  <div class="app-name-line"><h3 class="app-name" id="prevTitle"></h3><span id="prevBadge"></span></div>
+                  <p class="app-sub" id="prevDev"></p>
+                </div>
+                <button class="pill-btn" type="button" tabindex="-1" data-i18n="store.get">Get</button>
+              </div>
+              <img class="preview-shot" id="prevShot" alt="" hidden>
+              <p class="preview-desc" id="prevDesc"></p>
+            </div>
+
+            <div class="section-title" style="margin-top: 22px;" data-i18n="store.share.title">Publish for everyone</div>
+            <div class="preview-card share">
+              <p data-i18n="store.share.text">“Add to Store” only lists the app on this computer. To get it into the official catalog, send its entry to the mariowOS team:</p>
+              <ol>
+                <li><span data-i18n="store.share.step1">Export the entry.</span>
+                  <div class="share-actions">
+                    <button class="btn secondary sm" type="button" id="btnCopyJson" data-i18n="store.share.copy">Copy JSON</button>
+                    <button class="btn secondary sm" type="button" id="btnSaveJson" data-i18n="store.share.download">Download</button>
+                  </div>
+                </li>
+                <li><span data-i18n="store.share.step2">Then either:</span>
+                  <div class="share-links">
+                    <a id="lnkPullRequest" href="https://github.com/mariowOS/store-catalog/edit/main/store-catalog.json" target="_blank" rel="noopener"><span class="material-symbols-outlined">merge</span><span><b data-i18n="store.share.pr">Open a pull request</b><br><span id="lnkPullRequestHint">Add it to store-catalog.json in mariowOS/store-catalog.</span></span></a>
+                    <a href="https://discord.gg/YDVxw6jfbH" target="_blank" rel="noopener"><span class="material-symbols-outlined">forum</span><span><b data-i18n="store.share.discord">Join the Discord</b><br><span data-i18n="store.share.discord-hint">Open a ticket and paste the JSON.</span></span></a>
+                  </div>
+                </li>
+              </ol>
+              <p class="hint" id="shareNote" hidden data-i18n="store.share.uploads-note">Uploaded images stay on this computer. Put icon.png and a screenshots/ folder in your repository so the official catalog can show them.</p>
+              <pre class="json-preview" id="jsonPreview"></pre>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <!-- Sources -->
+      <section id="view-settings" class="view">
+        <div class="page-head">
+          <div>
+            <h1 class="page-title" data-i18n="store.nav.sources">Sources</h1>
+            <p class="page-sub" data-i18n="store.sources.sub">Catalogs the Store shows apps from. They add up: turning on Insider keeps every stable app.</p>
           </div>
         </div>
-        <div class="lp-desc-container">
-          <h3 class="lp-desc-title" data-i18n="store.detail.description">Description</h3>
-          <p id="lpDesc" class="lp-desc"></p>
-        </div>
-      </div>
 
-      <!-- Publish View -->
-      <div id="view-publish" class="view">
-        <h2 class="section-title" data-i18n="store.publish.title">Submit to App Store</h2>
-        <div class="pub-card">
-          <input type="text" id="pubId" class="pub-input" placeholder="Bundle ID (e.g., com.mariowos.calc)" data-i18n-placeholder="store.publish.bundle-id">
-          <input type="text" id="pubTitle" class="pub-input" placeholder="App Name" data-i18n-placeholder="store.publish.app-name">
-          <input type="text" id="pubDev" class="pub-input" placeholder="Developer Name" data-i18n-placeholder="store.publish.developer">
-          
-          <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-            <input type="text" id="pubIconText" class="pub-input" placeholder="Emoji (Leave empty to fetch from GitHub)" data-i18n-placeholder="store.publish.emoji" style="margin-bottom: 0; flex: 1;">
-            <div style="display: flex; align-items: center; color: var(--text-secondary); font-size: 13px;" data-i18n="store.publish.or">OR</div>
-            <input type="file" id="pubIconFile" class="pub-input" accept="image/png, image/jpeg" style="margin-bottom: 0; flex: 2; padding: 6px 10px;">
+        <div class="settings-group">
+          <div class="settings-row">
+            <div class="text">
+              <div class="name" data-i18n="store.channel.stable">Stable</div>
+              <div class="desc" data-i18n="store.sources.stable">Tested releases. Always on.</div>
+            </div>
+            <label class="switch"><input type="checkbox" checked disabled><span></span></label>
           </div>
-          
-          <textarea id="pubDesc" class="pub-input" placeholder="Description" data-i18n-placeholder="store.detail.description" rows="4"></textarea>
-          <textarea id="pubEula" class="pub-input" placeholder="Custom EULA / License Agreement (Optional - Leave empty to auto-fetch from GitHub repo)" data-i18n-placeholder="store.publish.eula" rows="3"></textarea>
-          <input type="text" id="pubRepo" class="pub-input" placeholder="GitHub Repository URL (.git)" data-i18n-placeholder="store.publish.repo">
-          
-          <button class="btn-action primary" onclick="submitApp()" style="width: 100%; margin-top: 8px;" data-i18n="store.publish.submit">Submit for Review</button>
-          <div id="publishStatus" class="publish-status"></div>
+          <div class="settings-row">
+            <div class="text">
+              <div class="name"><span data-i18n="store.channel.insider">Insider</span> <span class="badge" data-i18n="store.badge.insider">Insider</span></div>
+              <div class="desc" data-i18n="store.sources.insiders">Early and experimental builds. They may be unfinished or break. Apps that have both builds ask which one to install.</div>
+            </div>
+            <label class="switch"><input type="checkbox" id="srcInsiders"><span></span></label>
+          </div>
         </div>
-      </div>
+        <div class="form-status" id="sourcesStatus" role="status" style="margin-top: 8px;"></div>
 
-      <!-- Settings View -->
-      <div id="view-settings" class="view">
-        <h2 class="section-title" data-i18n="store.settings.title">Store Settings</h2>
-        
-        <div class="pub-card" style="margin-bottom: 24px;">
-          <h3 class="lp-desc-title" data-i18n="store.settings.channel">Update Channel</h3>
-          <p class="lp-desc" style="margin-bottom: 12px;"><span data-i18n="store.settings.channel-text">Choose your preferred mariowOS update channel.</span> <strong data-i18n="store.settings.channel-email">Requires a verified email.</strong></p>
-          <select id="updateChannelSelect" class="pub-input" onchange="changeUpdateChannel()" style="cursor: pointer;">
-            <option value="stable" data-i18n="store.settings.channel.stable">Stable (Recommended)</option>
-            <option value="beta" data-i18n="store.settings.channel.beta">Beta (Early Access)</option>
-            <option value="insiders" data-i18n="store.settings.channel.insiders">Insiders (Experimental)</option>
-          </select>
-          <div id="channelStatus" class="lp-error" style="margin-top: 8px;"></div>
+        <div class="section">
+          <div class="settings-group">
+            <div class="settings-row">
+              <div class="text">
+                <div class="name" data-i18n="store.settings.catalog">Refresh catalog</div>
+                <div class="desc" id="catalogStatus" data-i18n="store.settings.catalog-text">The Store refreshes when it opens. Refresh now to pick up apps published since.</div>
+              </div>
+              <button class="btn secondary" type="button" id="btnUpdateCatalog" data-i18n="store.settings.update-catalog">Refresh</button>
+            </div>
+          </div>
         </div>
 
-        <div class="pub-card">
-          <h3 class="lp-desc-title" data-i18n="store.settings.catalog">Repository Catalog</h3>
-          <p class="lp-desc" style="margin-bottom: 14px;" data-i18n="store.settings.catalog-text">Manually fetch the latest apps and updates from the remote GitHub catalog.</p>
-          <button class="btn-action primary" onclick="updateCatalog()" id="btnUpdateCatalog">Update Catalog</button>
-          <div id="catalogStatus" class="publish-status"></div>
-        </div>
-        
-        <!-- About Footer -->
-        <div style="margin-top: 40px; text-align: center; color: var(--text-dim); font-size: 11.5px; line-height: 1.6;">
-          <img src="/desktop/assets/icons/stars.png" style="width: 32px; height: 32px; opacity: 0.5; margin-bottom: 8px; border-radius: 8px;"><br>
-          <strong>mariowOS Store</strong><br>
-          <span data-i18n="store.about.version">Version</span> 1.0.0<br>
-          <span data-i18n="store.about.copyright">© 2026 mariowstech and contributors.</span>
-        </div>
-      </div>
-
+        <p class="about">mariowOS Store · <span data-i18n="store.about.version">Version</span> 1.1.0 · <span data-i18n="store.about.copyright">© 2026 mariowstech and contributors.</span><br><span data-i18n="store.about.system-updates">System updates are in Settings.</span></p>
+      </section>
     </div>
   </div>
 
-  <!-- EULA Overlay -->
-  <div id="store-eula-overlay">
-    <div class="store-eula-modal">
-      <h2 data-i18n="store.eula.title">License Agreement</h2>
-      <p id="eula-intro" style="font-size: 12.5px; color: var(--text-secondary); margin: 0;">Please review the terms for <strong id="eula-app-title" style="color: var(--text);"></strong> by <span id="eula-app-dev" style="color: var(--sys-accent-text);"></span>.</p>
-      <div class="store-eula-box">
-        <!-- EULA dynamic text will be injected here -->
+  <!-- Choose build -->
+  <div class="overlay" id="channelOverlay" role="dialog" aria-modal="true" aria-labelledby="channelTitle">
+    <form class="modal" id="channelForm">
+      <h2 id="channelTitle" data-i18n="store.choose.title">Which build?</h2>
+      <p id="channelIntro"></p>
+      <div class="choices">
+        <label class="choice">
+          <input type="radio" name="channel" value="stable" checked>
+          <div class="choice-body">
+            <div class="name"><span data-i18n="store.channel.stable">Stable</span><span class="ver" id="verStable"></span></div>
+            <div class="desc" data-i18n="store.choose.stable">Recommended for everyday use.</div>
+          </div>
+        </label>
+        <label class="choice">
+          <input type="radio" name="channel" value="insiders">
+          <div class="choice-body">
+            <div class="name"><span data-i18n="store.channel.insider">Insider</span> <span class="badge" data-i18n="store.badge.insider">Insider</span><span class="ver" id="verInsiders"></span></div>
+            <div class="desc" data-i18n="store.choose.insider">Newest features first. May be unstable.</div>
+          </div>
+        </label>
       </div>
-      <div class="store-eula-actions">
-        <button class="btn-action" style="background: rgba(255, 255, 255, 0.1); color: var(--text);" onclick="declineEula()" data-i18n="store.eula.decline">Decline</button>
-        <button class="btn-action primary" onclick="acceptEula()" data-i18n="store.eula.accept">I Agree</button>
+      <div class="modal-actions">
+        <button class="btn secondary" type="button" data-close data-i18n="common.cancel">Cancel</button>
+        <button class="btn primary" type="submit" data-i18n="store.install">Install</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Screenshot viewer -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+    <button class="icon-btn lb-close" type="button" data-lb="close" title="Close" data-i18n-title="common.close"><span class="material-symbols-outlined">close</span></button>
+    <button class="icon-btn" type="button" data-lb="prev"><span class="material-symbols-outlined">chevron_left</span></button>
+    <img id="lightboxImg" alt="">
+    <button class="icon-btn" type="button" data-lb="next"><span class="material-symbols-outlined">chevron_right</span></button>
+    <div class="lb-count" id="lightboxCount"></div>
+  </div>
+
+  <!-- License -->
+  <div class="overlay" id="eulaOverlay" role="dialog" aria-modal="true" aria-labelledby="eulaTitle">
+    <div class="modal">
+      <h2 id="eulaTitle" data-i18n="store.eula.title">License Agreement</h2>
+      <p id="eulaIntro"></p>
+      <div class="eula-box" id="eulaBox"></div>
+      <div class="modal-actions">
+        <button class="btn secondary" type="button" data-close data-i18n="store.eula.decline">Decline</button>
+        <button class="btn primary" type="button" id="eulaAccept" data-i18n="store.eula.accept">I Agree</button>
       </div>
     </div>
   </div>
 
   <script>
-    let storeCatalog = [];
-    let installedAppsList = [];
-    let currentAppOpen = null;
-    let searchTimeout = null;
-    // Installing and removing apps is for administrators (Settings > Users).
-    let storeCanInstall = true;
-    fetch('/api/users/me', { cache: 'no-store' }).then(r => r.json()).then(({ user }) => { storeCanInstall = !user || !!user.admin; if (typeof currentAppOpen !== 'undefined' && currentAppOpen) updateInstallBtn(); }).catch(() => {});
-    document.getElementById('accountBtn').addEventListener('click', () => {
-      if (window.parent !== window) window.parent.postMessage({ type: 'open-settings-page', page: 'you' }, location.origin);
-    });
-    fetch('/get-settings').then(r => r.json()).then(cfg => { if (typeof cfg.username === 'string' && cfg.username.trim()) document.getElementById('accountBtn').title = cfg.username.trim(); }).catch(() => {});
+    const t = (key, fallback, vars) => mariowOSI18n.t(key, fallback, vars);
+    const $ = id => document.getElementById(id);
 
-    // Texts that the scripts below change at runtime start translated too.
-    document.getElementById('gridTitle').textContent = mariowOSI18n.t("store.grid.new", "New & Updated");
-    document.getElementById('btnUpdateCatalog').textContent = mariowOSI18n.t("store.settings.update-catalog", "Update Catalog");
-
-    const renderIcon = (iconStr) => {
-      if (!iconStr) return '📦';
-      if (iconStr.includes('/') || iconStr.includes('.')) {
-        return `<img src="${iconStr}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`;
-      }
-      return iconStr;
+    const state = {
+      catalog: [],
+      installed: new Map(),  // appId -> installed record (with .channel)
+      updates: [],
+      sources: { stable: true, insiders: false },
+      canInstall: true,
+      current: null,         // app open on its page
+      filter: 'all',
+      view: 'home',
+      prevView: null,
+      busy: new Set()        // appIds with an install/update running
     };
 
-    async function initStore() {
+    // ─────────── Helpers ───────────
+    function el(tag, props = {}, ...children) {
+      const node = document.createElement(tag);
+      for (const [k, v] of Object.entries(props)) {
+        if (k === 'class') node.className = v;
+        else if (k === 'text') node.textContent = v;
+        else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+        else if (v !== undefined && v !== null && v !== false) node.setAttribute(k, v === true ? '' : v);
+      }
+      children.flat().forEach(c => c != null && node.append(c));
+      return node;
+    }
+
+    function iconNode(icon, cls = 'app-icon') {
+      const box = el('div', { class: cls });
+      if (icon && /[/.]/.test(icon)) {
+        const img = el('img', { src: icon, alt: '', loading: 'lazy' });
+        img.onerror = () => { img.remove(); box.textContent = '📦'; };
+        box.append(img);
+      } else box.textContent = icon || '📦';
+      return box;
+    }
+
+    const insiderBadge = () => el('span', { class: 'badge', text: t('store.badge.insider', 'Insider') });
+    const channelName = ch => ch === 'insiders' ? t('store.channel.insider', 'Insider') : t('store.channel.stable', 'Stable');
+    const variantOf = (app, ch) => (app.variants || []).find(v => v.channel === ch);
+    const hasBoth = app => (app.channels || []).length > 1;
+    const isInstalled = id => state.installed.has(id);
+    const installedChannel = id => (state.installed.get(id) || {}).channel || 'stable';
+    const updateFor = id => state.updates.find(u => u.appId === id);
+
+    // The build a row stands for: what's installed, else the only one there is.
+    function shownAsInsider(app) {
+      if (isInstalled(app.id)) return installedChannel(app.id) === 'insiders';
+      return !!app.insidersOnly;
+    }
+
+    function openApp(appId) {
+      window.parent.postMessage({ type: 'open-app-from-store', appId }, '*');
+    }
+
+    async function api(url, body) {
+      const res = await fetch(url, body === undefined ? { cache: 'no-store' } : {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      });
+      let data = {};
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok && data.success !== true) throw new Error(data.error || `HTTP ${res.status}`);
+      return data;
+    }
+
+    // ─────────── Data ───────────
+    async function loadInstalled() {
       try {
-        const conf = await (await fetch('/get-settings')).json();
-        installedAppsList = conf.installedApps ? conf.installedApps.map(a => a.appId || a) : [];
-      } catch (e) {
-        console.warn('Could not load installed apps:', e);
-      }
+        const conf = await api('/get-settings');
+        state.installed = new Map((conf.installedApps || []).map(a => [a.appId || a, typeof a === 'object' ? a : { appId: a }]));
+        if (typeof conf.username === 'string' && conf.username.trim()) $('accountBtn').title = conf.username.trim();
+      } catch (e) { console.warn('Could not load installed apps:', e); }
+    }
 
+    async function loadCatalog() {
+      try { state.catalog = await api('/api/store/catalog'); }
+      catch (e) { console.warn('Could not load store catalog:', e); state.catalog = []; }
+    }
+
+    async function loadSources() {
+      try { state.sources = await api('/api/store/sources'); } catch (e) {}
+      $('srcInsiders').checked = !!state.sources.insiders;
+      $('filterChips').hidden = !state.sources.insiders;
+      if (!state.sources.insiders) state.filter = 'all';
+    }
+
+    async function checkUpdates() {
+      $('btnCheckUpdates').disabled = true;
+      $('updatesSub').textContent = t('store.updates.checking', 'Checking for updates…');
       try {
-        storeCatalog = await (await fetch('/api/store/catalog')).json();
+        state.updates = (await api('/api/store/check-upgrades')).upgrades || [];
+        state.updatesChecked = new Date();
       } catch (e) {
-        console.warn('Could not load store catalog:', e);
-        storeCatalog = [];
+        $('updatesSub').textContent = t('store.network-error', 'Network error.');
+      } finally {
+        $('btnCheckUpdates').disabled = false;
       }
-      renderGrid(storeCatalog);
+      renderUpdates();
+      if (state.view === 'home') renderHome();
+      if (state.view === 'library') renderLibrary();
+      if (state.view === 'landpage') renderLandpage();
     }
 
-    function switchView(viewName) {
-      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-      document.querySelectorAll('.nav-item').forEach(v => v.classList.remove('active'));
-      const btnBack = document.getElementById('btnBack');
-      btnBack.style.display = viewName === 'landpage' ? 'inline-flex' : 'none';
-      document.getElementById('navBack').disabled = viewName === 'home';
-
-      if (viewName === 'home') {
-        document.getElementById('view-home').classList.add('active');
-        document.getElementById('nav-discover').classList.add('active');
-        document.getElementById('searchInput').value = ''; 
-        handleSearch(''); 
-      } else if (viewName === 'publish') {
-        document.getElementById('view-publish').classList.add('active');
-        document.getElementById('nav-publish').classList.add('active');
-        document.getElementById('publishStatus').textContent = '';
-      } else if (viewName === 'settings') {
-        document.getElementById('view-settings').classList.add('active');
-        document.getElementById('nav-settings').classList.add('active');
-        fetchUpdateChannel(); // Fetch the current channel when opening settings
-      } else if (viewName === 'landpage') {
-        document.getElementById('view-landpage').classList.add('active');
+    // ─────────── Rows ───────────
+    function actionButton(app) {
+      const id = app.id;
+      if (state.busy.has(id)) return el('button', { class: 'pill-btn', disabled: true, text: t('store.working', 'Working…') });
+      if (updateFor(id) && state.canInstall) {
+        return el('button', { class: 'pill-btn', text: t('store.update', 'Update'), onclick: e => { e.stopPropagation(); runUpdates([id]); } });
       }
-    }
-
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      clearTimeout(searchTimeout);
-      searchTimeout = setTimeout(() => handleSearch(e.target.value), 250);
-    });
-
-    function handleSearch(query) {
-      const q = query.toLowerCase().trim();
-      const heroSec = document.getElementById('heroSection');
-      const gridTitle = document.getElementById('gridTitle');
-      
-      if (q === '') {
-        heroSec.style.display = 'grid';
-        gridTitle.textContent = mariowOSI18n.t("store.grid.new", "New & Updated");
-        renderGrid(storeCatalog);
-      } else {
-        heroSec.style.display = 'none';
-        gridTitle.textContent = mariowOSI18n.t("store.grid.results", "Search Results");
-        const filtered = storeCatalog.filter(app => 
-          app.title.toLowerCase().includes(q) || 
-          app.developer.toLowerCase().includes(q) || 
-          app.desc.toLowerCase().includes(q)
-        );
-        renderGrid(filtered);
+      if (isInstalled(id)) {
+        return el('button', { class: 'pill-btn quiet', text: t('common.open', 'Open'), onclick: e => { e.stopPropagation(); openApp(id); } });
       }
-    }
-
-    function renderGrid(catalogArray) {
-      const grid = document.getElementById('appGrid');
-      if (catalogArray.length === 0) {
-        grid.innerHTML = '<div class="loading-text" data-i18n="store.grid.empty">No apps found.</div>';
-        return;
-      }
-      grid.innerHTML = '';
-
-      catalogArray.forEach(app => {
-        const isInst = installedAppsList.includes(app.id);
-        const card = document.createElement('div');
-        card.className = 'app-card';
-        card.onclick = () => openLandpage(app.id);
-        card.innerHTML = `
-          <div class="card-icon">${renderIcon(app.icon)}</div>
-          <div class="card-info">
-            <h3 class="card-title">${app.title}</h3>
-            <p class="card-desc">${app.desc}</p>
-          </div>
-          <button class="btn-get ${isInst ? 'installed' : ''}" onclick="event.stopPropagation(); ${isInst ? `openInstalledApp('${app.id}')` : `openLandpage('${app.id}')`}">${isInst ? mariowOSI18n.t("common.open", "Open") : mariowOSI18n.t("store.get", "Get")}</button>
-        `;
-        grid.appendChild(card);
+      return el('button', {
+        class: 'pill-btn', text: t('store.get', 'Get'), disabled: !state.canInstall,
+        title: state.canInstall ? null : t('store.admin-only-hint', 'Only administrators can install apps on this computer.'),
+        onclick: e => { e.stopPropagation(); startInstall(app); }
       });
     }
 
+    function appRow(app, subtitle) {
+      return el('div', { class: 'app-row', role: 'button', tabindex: '0',
+          onclick: () => openLandpage(app.id),
+          onkeydown: e => { if (e.key === 'Enter') openLandpage(app.id); } },
+        iconNode(app.icon),
+        el('div', { class: 'app-meta' },
+          el('div', { class: 'app-name-line' }, el('h3', { class: 'app-name', text: app.title || app.id }), shownAsInsider(app) ? insiderBadge() : null),
+          el('p', { class: 'app-sub', text: subtitle ?? [app.developer, app.desc].filter(Boolean).join(' · ') })
+        ),
+        actionButton(app)
+      );
+    }
+
+    function emptyState(icon, text) {
+      return el('div', { class: 'empty', style: 'grid-column: 1 / -1' }, el('span', { class: 'material-symbols-outlined', text: icon }), text);
+    }
+
+    function skeleton(n = 6) {
+      return Array.from({ length: n }, () => el('div', { class: 'app-row skeleton' },
+        el('div', { class: 'app-icon' }),
+        el('div', { class: 'app-meta' }, el('div', { class: 'sk-line', style: 'width: 40%' }), el('div', { class: 'sk-line', style: 'width: 70%' }))));
+    }
+
+    // ─────────── Discover ───────────
+    function renderHome() {
+      const q = $('searchInput').value.toLowerCase().trim();
+      let apps = state.catalog;
+      if (state.filter !== 'all') apps = apps.filter(a => (a.channels || ['stable']).includes(state.filter));
+      if (q) apps = apps.filter(a => [a.title, a.developer, a.desc, a.id].some(s => String(s || '').toLowerCase().includes(q)));
+
+      $('homeTitle').textContent = q ? t('store.grid.results', 'Results') : t('store.nav.discover', 'Discover');
+      $('homeSub').textContent = q
+        ? t('store.grid.results-count', '{count} for “{query}”', { count: apps.length, query: q })
+        : t('store.grid.count', '{count} apps', { count: apps.length });
+
+      const grid = $('appGrid');
+      grid.replaceChildren(...(apps.length
+        ? apps.map(a => appRow(a))
+        : [emptyState(q ? 'search_off' : 'inventory_2', q ? t('store.grid.empty', 'No apps match your search.') : t('store.grid.empty-catalog', 'The catalog is empty. Check your connection and refresh.'))]));
+    }
+
+    // ─────────── Installed ───────────
+    function renderLibrary() {
+      const byId = new Map(state.catalog.map(a => [a.id, a]));
+      const rows = [...state.installed.values()].map(rec => {
+        const app = byId.get(rec.appId) || { id: rec.appId, title: rec.title, icon: rec.icon, channels: [rec.channel || 'stable'] };
+        const where = String(rec.repoUrl || '').startsWith('local:') ? t('store.library.sideloaded', 'Sideloaded') : channelName(rec.channel);
+        return appRow(app, [where, rec.version ? `v${rec.version}` : null].filter(Boolean).join(' · '));
+      });
+      $('libraryList').replaceChildren(...(rows.length ? rows : [emptyState('apps', t('store.library.empty', 'Nothing installed from the Store yet.'))]));
+    }
+
+    // ─────────── Updates ───────────
+    function renderUpdates() {
+      const n = state.updates.length;
+      $('updatesCount').hidden = n === 0;
+      $('updatesCount').textContent = n;
+      $('btnUpdateAll').hidden = n < 2 || !state.canInstall;
+      if (state.updatesChecked) {
+        $('updatesSub').textContent = n
+          ? t('store.updates.available', '{count} available', { count: n })
+          : t('store.updates.none-sub', 'Everything is up to date.');
+      }
+      const byId = new Map(state.catalog.map(a => [a.id, a]));
+      const rows = state.updates.map(u => {
+        const app = byId.get(u.appId) || { id: u.appId, title: u.title, icon: u.icon };
+        const sub = el('span', {}, `${channelName(u.channel)} · ${u.current} → `, el('b', { text: u.latest }));
+        const row = appRow(app, '');
+        row.classList.add('update-row');
+        row.querySelector('.app-sub').replaceChildren(sub);
+        return row;
+      });
+      $('updatesList').replaceChildren(...(rows.length ? rows
+        : [emptyState('task_alt', state.updatesChecked ? t('store.updates.none', 'All your apps are up to date.') : t('store.updates.checking', 'Checking for updates…'))]));
+    }
+
+    async function runUpdates(appIds) {
+      appIds.forEach(id => state.busy.add(id));
+      rerender();
+      try {
+        const r = await api('/api/store/do-upgrade', { appIds });
+        (r.updated || []).forEach(u => {
+          const rec = state.installed.get(u.appId);
+          if (rec) rec.version = u.version;
+          window.parent.postMessage({ type: 'app-updated-live', appId: u.appId }, '*');
+        });
+        state.updates = state.updates.filter(u => !(r.updated || []).some(x => x.appId === u.appId));
+        if (r.failed && r.failed.length) showError(t('store.updates.failed', 'Could not update: {apps}', { apps: r.failed.join(', ') }));
+      } catch (e) {
+        showError(t('store.error', 'Error: {error}', { error: e.message }));
+      } finally {
+        appIds.forEach(id => state.busy.delete(id));
+        rerender();
+      }
+    }
+
+    function showError(msg) {
+      if (state.view === 'landpage') $('installError').textContent = msg;
+      else $('updatesSub').textContent = msg;
+    }
+
+    // ─────────── App page ───────────
     function openLandpage(id) {
-      currentAppOpen = storeCatalog.find(a => a.id === id);
-      if (!currentAppOpen) return;
-
-      document.getElementById('lpIcon').innerHTML = renderIcon(currentAppOpen.icon);
-      document.getElementById('lpTitle').textContent = currentAppOpen.title;
-      document.getElementById('lpDev').textContent = currentAppOpen.developer;
-      document.getElementById('lpDesc').textContent = currentAppOpen.desc;
-      document.getElementById('installError').textContent = '';
-
-      updateInstallBtn();
+      const app = state.catalog.find(a => a.id === id);
+      if (!app) {
+        if (isInstalled(id)) openApp(id);
+        return;
+      }
+      state.current = app;
+      state.versions = null;
+      $('installError').textContent = '';
       switchView('landpage');
+      renderLandpage();
+      api(`/api/store/app-versions?id=${encodeURIComponent(id)}`).then(r => {
+        if (state.current === app) { state.versions = r.versions; renderLandpage(); }
+      }).catch(() => {});
     }
 
-    function updateInstallBtn() {
-      const btnI = document.getElementById('btnInstall');
-      const btnU = document.getElementById('btnUninstall');
-      const isInst = installedAppsList.includes(currentAppOpen.id);
+    function renderLandpage() {
+      const app = state.current;
+      if (!app) return;
+      const inst = isInstalled(app.id);
+      const ch = inst ? installedChannel(app.id) : (app.insidersOnly ? 'insiders' : 'stable');
+      const variant = variantOf(app, ch) || {};
 
-      btnI.textContent = isInst ? mariowOSI18n.t("common.open", "Open") : mariowOSI18n.t("store.get", "Get");
-      btnI.className = `btn-action primary ${isInst ? 'installed' : ''}`;
-      btnI.style.background = isInst ? 'rgba(255, 255, 255, 0.1)' : '';
-      btnI.style.color = isInst ? 'var(--text)' : '';
-      
-      btnI.disabled = false;
-      btnI.title = '';
-      if (!storeCanInstall && !isInst) {
-        btnI.textContent = mariowOSI18n.t("store.admin-only", "Ask an administrator");
-        btnI.title = mariowOSI18n.t("store.admin-only-hint", "Only administrators can install apps on this computer.");
-        btnI.disabled = true;
-      }
+      $('lpIcon').replaceWith(Object.assign(iconNode(app.icon, 'app-icon lp-icon'), { id: 'lpIcon' }));
+      $('lpTitle').textContent = app.title || app.id;
+      $('lpBadge').replaceChildren(shownAsInsider(app) ? insiderBadge() : '');
+      $('lpDev').textContent = app.developer || '';
+      $('lpDesc').textContent = variant.desc || app.desc || '';
+      if (state.shotsKey !== `${app.id}:${ch}`) loadShots(app, ch);
 
-      btnI.onclick = isInst
-        ? () => window.parent.postMessage({ type: 'open-app-from-store', appId: currentAppOpen.id }, '*')
-        : () => promptEula();
-
-      btnU.style.display = isInst && storeCanInstall ? 'inline-block' : 'none';
-      btnU.textContent = mariowOSI18n.t("store.uninstall", "Uninstall");
-      btnU.onclick = () => actOnApp('uninstall');
-    }
-
-    function openInstalledApp(appId) {
-      window.parent.postMessage({ type: 'open-app-from-store', appId }, '*');
-    }
-    
-    // --- EULA LOGIC ---
-    function showEulaModal(eulaText) {
-      // "Please review the terms for {app} by {developer}.": keep the styled name elements.
-      const intro = document.getElementById("eula-intro");
-      const appEl = document.getElementById("eula-app-title");
-      const devEl = document.getElementById("eula-app-dev");
-      intro.replaceChildren(...mariowOSI18n.t("store.eula.intro", "Please review the terms for {app} by {developer}.")
-        .split(/(\{app\}|\{developer\})/).map(part => part === "{app}" ? appEl : part === "{developer}" ? devEl : document.createTextNode(part)));
-      appEl.innerText = currentAppOpen.title;
-      devEl.innerText = currentAppOpen.developer || mariowOSI18n.t("store.eula.unknown-developer", "Unknown Developer");
-      document.querySelector(".store-eula-box").innerText = eulaText;
-      document.getElementById("store-eula-overlay").style.display = "flex";
-    }
-
-    async function promptEula() {
-      if (!currentAppOpen) return;
-
-      if (currentAppOpen.eula) {
-        showEulaModal(currentAppOpen.eula);
-        return;
-      }
-
-      const btn = document.getElementById('btnInstall');
-      const origText = btn.textContent;
-      btn.textContent = mariowOSI18n.t("store.checking", "Checking…");
-      btn.disabled = true;
-
-      try {
-        const res = await fetch('/api/store/eula', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repoUrl: currentAppOpen.repoUrl })
-        });
-        const data = await res.json();
-
-        if (data.eula) {
-          showEulaModal(data.eula);
-        } else {
-          actOnApp('install');
+      // Actions
+      const actions = [];
+      const busy = state.busy.has(app.id);
+      if (busy) {
+        actions.push(el('button', { class: 'btn primary', disabled: true, text: t('store.working', 'Working…') }));
+      } else if (inst) {
+        if (updateFor(app.id) && state.canInstall) actions.push(el('button', { class: 'btn primary', text: t('store.update', 'Update'), onclick: () => runUpdates([app.id]) }));
+        actions.push(el('button', { class: updateFor(app.id) ? 'btn secondary' : 'btn primary', text: t('common.open', 'Open'), onclick: () => openApp(app.id) }));
+        if (state.canInstall) {
+          const other = ch === 'insiders' ? 'stable' : 'insiders';
+          if (variantOf(app, other)) {
+            actions.push(el('button', { class: 'btn secondary', text: t('store.switch-to', 'Switch to {channel}', { channel: channelName(other) }), onclick: () => confirmEula(app, other) }));
+          }
+          actions.push(el('button', { class: 'btn danger', text: t('store.uninstall', 'Uninstall'), onclick: () => uninstall(app) }));
         }
-      } catch (err) {
-        actOnApp('install');
-      } finally {
-        btn.textContent = origText;
-        btn.disabled = false;
+      } else if (!state.canInstall) {
+        actions.push(el('button', { class: 'btn primary', disabled: true, text: t('store.admin-only', 'Ask an administrator'), title: t('store.admin-only-hint', 'Only administrators can install apps on this computer.') }));
+      } else {
+        actions.push(el('button', { class: 'btn primary', text: t('store.get', 'Get'), onclick: () => startInstall(app) }));
       }
+      $('lpActions').replaceChildren(...actions);
+
+      // Facts
+      const rec = state.installed.get(app.id);
+      const ver = (inst && rec && rec.version) || (state.versions && state.versions[ch]) || variant.version;
+      $('factVersion').textContent = ver ? `v${ver}` : (state.versions ? '—' : '…');
+      $('factBuilds').textContent = (app.channels || ['stable']).map(channelName).join(' + ');
+      $('factDev').textContent = app.developer || '—';
+      const src = variant.repoUrl || app.repoUrl || '';
+      const m = src.match(/github(?:usercontent)?\.com\/([^/]+\/[^/]+)/);
+      $('factSource').replaceChildren(m
+        ? el('a', { href: src.replace(/\.git$/, ''), target: '_blank', rel: 'noopener', text: m[1].replace(/\.git$/, ''), title: src })
+        : '—');
     }
 
-    function declineEula() {
-      document.getElementById("store-eula-overlay").style.display = "none";
-    }
-
-    function acceptEula() {
-      document.getElementById("store-eula-overlay").style.display = "none";
-      actOnApp('install'); 
-    }
-
-    async function actOnApp(action) {
-      const btn = action === 'install' ? document.getElementById('btnInstall') : document.getElementById('btnUninstall');
-      const origText = btn.textContent;
-      const origBg = btn.style.background;
-
-      btn.textContent = mariowOSI18n.t("store.working", "Working…");
-      btn.disabled = true;
-      document.getElementById('installError').textContent = '';
-
+    // ─────────── Screenshots ───────────
+    // The catalog's own list, else whatever the repo keeps in screenshots/.
+    async function loadShots(app, channel) {
+      const key = `${app.id}:${channel}`;
+      state.shotsKey = key;
+      state.shots = [];
+      $('lpShots').replaceChildren(el('div', { class: 'shot loading' }));
+      let list = [];
       try {
-        const body = action === 'install'
-          ? { appId: currentAppOpen.id, title: currentAppOpen.title, icon: currentAppOpen.icon, repoUrl: currentAppOpen.repoUrl }
-          : { appId: currentAppOpen.id };
+        list = (await api(`/api/store/screenshots?id=${encodeURIComponent(app.id)}&channel=${channel}`)).screenshots || [];
+      } catch (e) {}
+      if (state.shotsKey !== key) return;
+      state.shots = list;
+      $('lpShots').replaceChildren(...list.map((src, i) => {
+        const img = el('img', { src, alt: t('store.screenshot-n', 'Screenshot {n}', { n: i + 1 }), loading: 'lazy' });
+        const btn = el('button', { class: 'shot', type: 'button', onclick: () => openLightbox(i) }, img);
+        img.onerror = () => btn.remove();
+        return btn;
+      }));
+    }
 
-        const res = await fetch(`/api/store/${action}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
+    let lightboxIndex = 0;
+    function openLightbox(i) {
+      if (!state.shots.length) return;
+      lightboxIndex = (i + state.shots.length) % state.shots.length;
+      $('lightboxImg').src = state.shots[lightboxIndex];
+      $('lightboxCount').textContent = state.shots.length > 1 ? `${lightboxIndex + 1} / ${state.shots.length}` : '';
+      $('lightbox').querySelectorAll('[data-lb=prev],[data-lb=next]').forEach(b => b.hidden = state.shots.length < 2);
+      $('lightbox').classList.add('open');
+    }
+    const closeLightbox = () => $('lightbox').classList.remove('open');
+    $('lightbox').addEventListener('click', e => {
+      const action = e.target.closest('[data-lb]')?.dataset.lb;
+      if (action === 'prev') openLightbox(lightboxIndex - 1);
+      else if (action === 'next') openLightbox(lightboxIndex + 1);
+      else if (action === 'close' || e.target === $('lightbox')) closeLightbox();
+    });
+    document.addEventListener('keydown', e => {
+      if (!$('lightbox').classList.contains('open')) return;
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowLeft') openLightbox(lightboxIndex - 1);
+      else if (e.key === 'ArrowRight') openLightbox(lightboxIndex + 1);
+    });
 
-        const result = await res.json();
-        if (!result.success) throw new Error(result.error);
+    // ─────────── Install flow: build → license → install ───────────
+    async function startInstall(app) {
+      if (!state.canInstall || state.busy.has(app.id)) return;
+      let channel = app.insidersOnly ? 'insiders' : 'stable';
+      if (state.sources.insiders && hasBoth(app)) {
+        channel = await chooseChannel(app);
+        if (!channel) return;
+      }
+      confirmEula(app, channel);
+    }
 
-        if (action === 'install') {
-          installedAppsList.push(currentAppOpen.id);
-          window.parent.postMessage({
-            type: 'app-installed-live',
-            app: {
-              appId: currentAppOpen.id, title: currentAppOpen.title,
-              icon: currentAppOpen.icon, url: `apps/${currentAppOpen.id}/index.html`
-            }
-          }, '*');
-        } else {
-          installedAppsList = installedAppsList.filter(id => id !== currentAppOpen.id);
-          window.parent.postMessage({ type: 'app-uninstalled-live', appId: currentAppOpen.id }, '*');
+    function chooseChannel(app) {
+      return new Promise(resolve => {
+        const overlay = $('channelOverlay');
+        const form = $('channelForm');
+        $('channelIntro').textContent = t('store.choose.intro', '{app} has a stable and an insider build. You can switch later.', { app: app.title });
+        form.channel.value = 'stable';
+        const fill = v => {
+          $('verStable').textContent = v && v.stable ? `v${v.stable}` : '';
+          $('verInsiders').textContent = v && v.insiders ? `v${v.insiders}` : '';
+        };
+        fill(state.current === app ? state.versions : null);
+        if (!(state.current === app && state.versions)) {
+          api(`/api/store/app-versions?id=${encodeURIComponent(app.id)}`).then(r => fill(r.versions)).catch(() => {});
         }
-
-        updateInstallBtn();
-        handleSearch(document.getElementById('searchInput').value);
-      } catch (err) {
-        document.getElementById('installError').textContent = mariowOSI18n.t("store.error", "Error: {error}", { error: err.message });
-        btn.textContent = origText;
-        btn.style.background = origBg;
-        btn.disabled = false;
-      }
+        const done = value => {
+          overlay.classList.remove('open');
+          form.onsubmit = null;
+          overlay.onclick = null;
+          document.removeEventListener('keydown', onKey);
+          resolve(value);
+        };
+        const onKey = e => { if (e.key === 'Escape') done(null); };
+        form.onsubmit = e => { e.preventDefault(); done(form.channel.value); };
+        overlay.onclick = e => { if (e.target === overlay || e.target.closest('[data-close]')) done(null); };
+        document.addEventListener('keydown', onKey);
+        overlay.classList.add('open');
+        form.querySelector('input:checked').focus();
+      });
     }
 
-    async function submitApp() {
-      const status = document.getElementById('publishStatus');
-      status.style.color = 'var(--text-secondary)';
-      status.textContent = mariowOSI18n.t("store.publish.publishing", "Publishing...");
-
-      const idVal = document.getElementById('pubId').value.trim();
-      const titleVal = document.getElementById('pubTitle').value.trim();
-      const devVal = document.getElementById('pubDev').value.trim();
-      const descVal = document.getElementById('pubDesc').value.trim();
-      const repoVal = document.getElementById('pubRepo').value.trim();
-      const iconTextVal = document.getElementById('pubIconText').value.trim();
-      const eulaVal = document.getElementById('pubEula').value.trim();
-      const fileInput = document.getElementById('pubIconFile');
-
-      if (!idVal || !titleVal || !devVal || !descVal || !repoVal) {
-        status.style.color = '#FF453A';
-        status.textContent = mariowOSI18n.t("store.publish.required", "All fields are required.");
-        return;
+    async function confirmEula(app, channel) {
+      const variant = variantOf(app, channel) || { repoUrl: app.repoUrl, eula: app.eula };
+      let text = variant.eula || (channel === 'stable' ? app.eula : null);
+      if (!text) {
+        state.busy.add(app.id); rerender();
+        try { text = (await api('/api/store/eula', { repoUrl: variant.repoUrl })).eula; } catch (e) {}
+        state.busy.delete(app.id);
       }
+      if (!text) return install(app, channel);
 
-      const formData = new FormData();
-      formData.append('id', idVal);
-      formData.append('title', titleVal);
-      formData.append('developer', devVal);
-      formData.append('desc', descVal);
-      formData.append('repoUrl', repoVal);
+      const overlay = $('eulaOverlay');
+      const appEl = el('strong', { style: 'color: var(--text)', text: app.title });
+      const devEl = el('span', { style: 'color: var(--sys-accent-text)', text: app.developer || t('store.eula.unknown-developer', 'Unknown developer') });
+      $('eulaIntro').replaceChildren(...t('store.eula.intro', 'Please review the terms for {app} by {developer}.')
+        .split(/(\{app\}|\{developer\})/).map(p => p === '{app}' ? appEl : p === '{developer}' ? devEl : p));
+      $('eulaBox').textContent = text;
+      $('eulaBox').scrollTop = 0;
+      rerender();
 
-      if (eulaVal) {
-        formData.append('eula', eulaVal);
-      }
+      const close = () => { overlay.classList.remove('open'); overlay.onclick = null; $('eulaAccept').onclick = null; document.removeEventListener('keydown', onKey); };
+      const onKey = e => { if (e.key === 'Escape') close(); };
+      overlay.onclick = e => { if (e.target === overlay || e.target.closest('[data-close]')) close(); };
+      $('eulaAccept').onclick = () => { close(); install(app, channel); };
+      document.addEventListener('keydown', onKey);
+      overlay.classList.add('open');
+      $('eulaAccept').focus();
+    }
 
-      if (fileInput.files.length > 0) {
-        formData.append('iconFile', fileInput.files[0]);
-      } else if (iconTextVal) {
-        formData.append('icon', iconTextVal);
-      }
-
+    async function install(app, channel) {
+      const variant = variantOf(app, channel) || { repoUrl: app.repoUrl };
+      state.busy.add(app.id);
+      $('installError').textContent = '';
+      rerender();
       try {
-        const res = await fetch('/api/store/publish', {
-          method: 'POST',
-          body: formData 
-        });
-
-        const r = await res.json();
+        const r = await api('/api/store/install', { appId: app.id, title: app.title, icon: app.icon, repoUrl: variant.repoUrl, channel });
         if (!r.success) throw new Error(r.error);
+        const wasInstalled = isInstalled(app.id);
+        state.installed.set(app.id, { ...(state.installed.get(app.id) || {}), appId: app.id, title: app.title, icon: app.icon, repoUrl: variant.repoUrl, channel, version: r.version || null });
+        state.updates = state.updates.filter(u => u.appId !== app.id);
+        if (!wasInstalled) {
+          window.parent.postMessage({ type: 'app-installed-live', app: { appId: app.id, title: app.title, icon: app.icon, url: `apps/${app.id}/index.html` } }, '*');
+        } else {
+          window.parent.postMessage({ type: 'app-updated-live', appId: app.id }, '*');
+        }
+      } catch (e) {
+        $('installError').textContent = t('store.error', 'Error: {error}', { error: e.message });
+      } finally {
+        state.busy.delete(app.id);
+        rerender();
+      }
+    }
 
-        status.style.color = '#32d74b';
-        status.textContent = mariowOSI18n.t("store.publish.success", "Success! Your app is now available on Discover.");
-        
-        document.getElementById('pubId').value = '';
-        document.getElementById('pubTitle').value = '';
-        document.getElementById('pubDev').value = '';
-        document.getElementById('pubDesc').value = '';
-        document.getElementById('pubEula').value = '';
-        document.getElementById('pubRepo').value = '';
-        document.getElementById('pubIconText').value = '';
-        document.getElementById('pubIconFile').value = '';
+    async function uninstall(app) {
+      state.busy.add(app.id);
+      $('installError').textContent = '';
+      rerender();
+      try {
+        await api('/api/store/uninstall', { appId: app.id });
+        state.installed.delete(app.id);
+        state.updates = state.updates.filter(u => u.appId !== app.id);
+        window.parent.postMessage({ type: 'app-uninstalled-live', appId: app.id }, '*');
+      } catch (e) {
+        $('installError').textContent = t('store.error', 'Error: {error}', { error: e.message });
+      } finally {
+        state.busy.delete(app.id);
+        rerender();
+      }
+    }
 
-        setTimeout(() => { initStore(); switchView('home'); }, 1500);
+    // ─────────── Navigation ───────────
+    function switchView(view) {
+      if (view !== state.view) state.prevView = state.view;
+      state.view = view;
+      document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === `view-${view}`));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
+      $('navBack').disabled = view !== 'landpage';
+      $('main').scrollTop = 0;
+      rerender();
+    }
+
+    function rerender() {
+      renderUpdates();
+      if (state.view === 'home') renderHome();
+      else if (state.view === 'library') renderLibrary();
+      else if (state.view === 'landpage') renderLandpage();
+    }
+
+    document.querySelectorAll('.nav-item').forEach(n => {
+      const go = () => { if (n.dataset.view === 'home') $('searchInput').value = ''; switchView(n.dataset.view); };
+      n.addEventListener('click', go);
+      n.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
+    $('navBack').addEventListener('click', () => switchView(state.prevView && state.prevView !== 'landpage' ? state.prevView : 'home'));
+
+    let searchTimeout;
+    $('searchInput').addEventListener('input', () => {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => { if (state.view !== 'home') switchView('home'); else renderHome(); }, 150);
+    });
+
+    $('filterChips').addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      state.filter = chip.dataset.filter;
+      document.querySelectorAll('#filterChips .chip').forEach(c => c.setAttribute('aria-pressed', String(c === chip)));
+      renderHome();
+    });
+
+    $('btnCheckUpdates').addEventListener('click', checkUpdates);
+    $('btnUpdateAll').addEventListener('click', () => runUpdates(state.updates.map(u => u.appId)));
+
+    $('accountBtn').addEventListener('click', () => {
+      if (window.parent !== window) window.parent.postMessage({ type: 'open-settings-page', page: 'you' }, location.origin);
+    });
+
+    // ─────────── Sources ───────────
+    $('srcInsiders').addEventListener('change', async e => {
+      const box = e.target;
+      const status = $('sourcesStatus');
+      box.disabled = true;
+      status.className = 'form-status';
+      status.textContent = t('store.settings.saving', 'Saving…');
+      try {
+        const r = await api('/api/store/sources', { insiders: box.checked });
+        state.sources = r;
+        status.textContent = '';
+        $('filterChips').hidden = !r.insiders;
+        if (!r.insiders) state.filter = 'all';
+        await loadCatalog();
+        rerender();
       } catch (err) {
-        status.style.color = '#FF453A';
-        status.textContent = mariowOSI18n.t("store.error", "Error: {error}", { error: err.message });
+        box.checked = !box.checked;
+        status.className = 'form-status err';
+        status.textContent = t('store.error', 'Error: {error}', { error: err.message });
+      } finally {
+        box.disabled = !state.canInstall;
       }
-    }
+    });
 
-    // --- LOGICHE SETTINGS STORE ---
-    async function fetchUpdateChannel() {
-      try {
-        const res = await fetch('/api/system/update-channel');
-        const data = await res.json();
-        if (data.channel) {
-          document.getElementById('updateChannelSelect').value = data.channel;
-        }
-      } catch (e) {
-        console.warn('Failed to fetch update channel:', e);
-      }
-    }
-
-    async function changeUpdateChannel() {
-      const select = document.getElementById('updateChannelSelect');
-      const status = document.getElementById('channelStatus');
-      const channel = select.value;
-      
-      status.textContent = mariowOSI18n.t("store.settings.saving", "Saving...");
-      status.style.color = 'var(--text-secondary)';
-      
-      try {
-        const res = await fetch('/api/system/update-channel', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ channel })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-          status.textContent = mariowOSI18n.t("store.settings.channel-changed", "Update channel changed successfully.");
-          status.style.color = '#32d74b'; // Verde successo
-          setTimeout(() => status.textContent = '', 2500);
-        } else {
-          status.textContent = data.error || mariowOSI18n.t("store.settings.channel-failed", "Failed to change channel.");
-          status.style.color = '#ff453a'; // Rosso errore
-          fetchUpdateChannel(); // Ripristina il valore vecchio in caso di errore (es: no mail verificata)
-        }
-      } catch (e) {
-        status.textContent = mariowOSI18n.t("store.network-error", "Network error.");
-        status.style.color = '#ff453a';
-        fetchUpdateChannel();
-      }
-    }
-
-    async function updateCatalog() {
-      const btn = document.getElementById('btnUpdateCatalog');
-      const status = document.getElementById('catalogStatus');
-      
+    $('btnUpdateCatalog').addEventListener('click', async () => {
+      const btn = $('btnUpdateCatalog');
+      const status = $('catalogStatus');
       btn.disabled = true;
-      btn.textContent = mariowOSI18n.t("store.settings.updating", "Updating...");
-      status.textContent = '';
-      status.style.color = 'var(--text-secondary)';
-      
+      btn.textContent = t('store.settings.updating', 'Refreshing…');
       try {
-        const res = await fetch('/api/store/update');
-        const data = await res.json();
-        if (data.success) {
-          status.style.color = '#32d74b';
-          status.textContent = mariowOSI18n.t("store.settings.catalog-updated", "Catalog updated! Added {count} new apps.", { count: data.addedCount });
-          initStore(); // Ricarica la griglia con i nuovi dati per mostrare le nuove app
-        } else {
-          status.style.color = '#ff453a';
-          status.textContent = data.error || mariowOSI18n.t("store.settings.catalog-failed", "Failed to update catalog.");
-        }
+        const r = await api('/api/store/update');
+        status.textContent = r.addedCount
+          ? t('store.settings.catalog-updated', 'Refreshed. {count} new apps.', { count: r.addedCount })
+          : t('store.settings.catalog-current', 'Refreshed. No new apps.');
+        await loadCatalog();
+        rerender();
       } catch (e) {
-        status.style.color = '#ff453a';
-        status.textContent = mariowOSI18n.t("store.settings.catalog-network-error", "Network error while updating catalog.");
+        status.textContent = t('store.settings.catalog-failed', 'Could not reach the catalog. Showing the saved copy.');
       } finally {
         btn.disabled = false;
-        btn.textContent = mariowOSI18n.t("store.settings.update-catalog", "Update Catalog");
+        btn.textContent = t('store.settings.update-catalog', 'Refresh');
       }
+    });
+
+    // ─────────── Submit ───────────
+    const pub = {
+      channel: 'stable',
+      touched: new Set(),   // fields the user typed in (we stop auto-filling those)
+      iconFile: null,
+      shots: [],            // uploaded screenshot files
+      autoShots: [],        // found in the repo's screenshots/ folder
+      autoFor: ''           // repo the autoShots belong to
+    };
+    const MAX_SHOTS = 8;
+    let shotLookup;
+
+    // Screenshots from the repository, looked up a moment after the link stops changing.
+    function lookupRepoShots() {
+      clearTimeout(shotLookup);
+      const info = parseRepo($('pubRepo').value);
+      const repo = info && info.git ? info.git : '';
+      if (repo === pub.autoFor) return;
+      pub.autoFor = repo;
+      pub.autoShots = [];
+      pub.lookingUp = !!repo;
+      renderShotPicker();
+      if (!repo) return;
+      shotLookup = setTimeout(async () => {
+        let list = [];
+        try { list = (await api(`/api/store/screenshots?repoUrl=${encodeURIComponent(repo)}`)).screenshots || []; } catch (e) {}
+        if (pub.autoFor !== repo) return;
+        pub.autoShots = list;
+        pub.lookingUp = false;
+        updatePreview();
+      }, 500);
     }
 
-    window.addEventListener('DOMContentLoaded', initStore);
+    function renderShotPicker() {
+      const urls = pub.shots.map(f => f._url || (f._url = URL.createObjectURL(f)));
+      const own = urls.map((src, i) => el('div', { class: 'thumb' }, el('img', { src, alt: '' }),
+        el('button', { class: 'remove', type: 'button', title: t('store.publish.remove', 'Remove'), text: '×', onclick: () => {
+          URL.revokeObjectURL(pub.shots[i]._url); pub.shots.splice(i, 1); updatePreview();
+        } })));
+      const auto = pub.shots.length ? [] : pub.autoShots.map(src => el('div', { class: 'thumb auto' }, el('img', { src, alt: '', loading: 'lazy' })));
+      const add = pub.shots.length < MAX_SHOTS
+        ? [el('button', { class: 'thumb-add', type: 'button', onclick: () => $('pubShotFiles').click() },
+            el('span', { class: 'material-symbols-outlined', text: 'add_photo_alternate' }), t('store.publish.add-shots', 'Add'))]
+        : [];
+      $('pubShots').replaceChildren(...own, ...auto, ...add);
+      $('pubShotsHint').textContent = pub.shots.length
+        ? t('store.publish.shots-uploaded', '{count} of {max}. These replace the repository’s screenshots.', { count: pub.shots.length, max: MAX_SHOTS })
+        : pub.lookingUp ? t('store.publish.shots-looking', 'Looking in the repository…')
+        : pub.autoShots.length ? t('store.publish.shots-found', 'Found {count} in the repository’s screenshots/ folder. Used automatically.', { count: pub.autoShots.length })
+        : t('store.publish.shots-hint', 'Add images, or put them in a screenshots/ folder in your repository and they are picked up automatically.');
+    }
+
+    $('pubShotFiles').addEventListener('change', e => {
+      pub.shots.push(...[...e.target.files].slice(0, MAX_SHOTS - pub.shots.length));
+      e.target.value = '';
+      updatePreview();
+    });
+
+    // The catalog entry as the official store-catalog JSON expects it.
+    function catalogEntry() {
+      const info = parseRepo($('pubRepo').value);
+      const repoUrl = info && info.git ? info.git : $('pubRepo').value.trim();
+      const entry = {
+        id: $('pubId').value.trim(),
+        title: $('pubTitle').value.trim(),
+        developer: $('pubDev').value.trim(),
+        desc: $('pubDesc').value.trim(),
+        repoUrl,
+        icon: $('pubIconText').value.trim() || (info && info.icon) || '📦'
+      };
+      const eula = $('pubEula').value.trim();
+      if (eula) entry.eula = eula;
+      return entry;
+    }
+
+    const catalogFile = () => pub.channel === 'insiders' ? 'store-catalog-insiders.json' : 'store-catalog.json';
+
+    function renderShare() {
+      const json = JSON.stringify(catalogEntry(), null, 2);
+      $('jsonPreview').textContent = json;
+      $('lnkPullRequest').href = `https://github.com/mariowOS/store-catalog/edit/main/${catalogFile()}`;
+      $('lnkPullRequestHint').textContent = t('store.share.pr-hint', 'Add it to {file} in mariowOS/store-catalog.', { file: catalogFile() });
+      $('shareNote').hidden = !(pub.iconFile || pub.shots.length);
+      return json;
+    }
+
+    $('btnCopyJson').addEventListener('click', async () => {
+      const btn = $('btnCopyJson');
+      if (!validatePublish()) return;
+      const json = renderShare();
+      try { await navigator.clipboard.writeText(json); }
+      catch (e) {
+        const r = document.createRange(); r.selectNodeContents($('jsonPreview'));
+        const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); document.execCommand('copy'); sel.removeAllRanges();
+      }
+      btn.textContent = t('store.share.copied', 'Copied');
+      setTimeout(() => { btn.textContent = t('store.share.copy', 'Copy JSON'); }, 1600);
+    });
+
+    $('btnSaveJson').addEventListener('click', () => {
+      if (!validatePublish()) return;
+      const blob = new Blob([renderShare() + '\n'], { type: 'application/json' });
+      const a = el('a', { href: URL.createObjectURL(blob), download: `${$('pubId').value.trim() || 'app'}.json` });
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+
+    function parseRepo(url) {
+      const m = String(url).trim().match(/^https:\/\/(?:www\.)?github\.com\/([^/\s]+)\/([^/\s?#]+?)(?:\.git)?\/?$/i);
+      if (m) return { owner: m[1], repo: m[2], icon: `https://raw.githubusercontent.com/${m[1]}/${m[2]}/main/icon.png`, git: `https://github.com/${m[1]}/${m[2]}.git` };
+      const raw = String(url).trim().match(/^https:\/\/(?:raw\.githubusercontent\.com|github\.com)\/([^/\s]+)\/([^/\s]+)\/.*?([^/\s]+)\.html?$/i);
+      if (raw) return { owner: raw[1], repo: raw[3], raw: true };
+      return null;
+    }
+
+    const slug = s => String(s).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 64);
+    const titleCase = s => String(s).replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim();
+
+    function setAuto(id, value) {
+      if (!pub.touched.has(id)) $(id).value = value;
+    }
+
+    function onRepoInput() {
+      lookupRepoShots();
+      const info = parseRepo($('pubRepo').value);
+      if (!info) return updatePreview();
+      setAuto('pubTitle', titleCase(info.repo));
+      setAuto('pubDev', info.owner);
+      setAuto('pubId', slug(info.repo));
+      updatePreview();
+    }
+
+    function currentIcon() {
+      if (pub.iconFile) return URL.createObjectURL(pub.iconFile);
+      const emoji = $('pubIconText').value.trim();
+      if (emoji) return emoji;
+      const info = parseRepo($('pubRepo').value);
+      return info && info.icon ? info.icon : '📦';
+    }
+
+    function updatePreview() {
+      const icon = currentIcon();
+      ['pubIconPreview', 'prevIcon'].forEach(id => $(id).replaceWith(Object.assign(iconNode(icon), { id })));
+      $('prevTitle').textContent = $('pubTitle').value.trim() || t('store.publish.app-name', 'Name');
+      $('prevDev').textContent = $('pubDev').value.trim() || t('store.publish.developer', 'Developer');
+      $('prevDesc').textContent = $('pubDesc').value.trim();
+      const firstShot = pub.shots.length ? pub.shots[0]._url || (pub.shots[0]._url = URL.createObjectURL(pub.shots[0])) : pub.autoShots[0];
+      $('prevShot').hidden = !firstShot;
+      if (firstShot && $('prevShot').getAttribute('src') !== firstShot) $('prevShot').src = firstShot;
+      renderShotPicker();
+      renderShare();
+      $('prevBadge').replaceChildren(pub.channel === 'insiders' ? insiderBadge() : '');
+      const exists = state.catalog.find(a => a.id === $('pubId').value.trim());
+      $('pubChannelHint').textContent = pub.channel === 'insiders'
+        ? (exists && !exists.insidersOnly
+            ? t('store.publish.channel-variant', 'Adds an insider build next to the stable “{app}”.', { app: exists.title })
+            : t('store.publish.channel-insider', 'Only people with the Insider source on will see it.'))
+        : t('store.publish.channel-stable', 'Everyone sees it.');
+    }
+
+    function setFieldError(name, msg) {
+      const field = document.querySelector(`.field[data-field="${name}"]`);
+      if (!field) return;
+      field.classList.toggle('invalid', !!msg);
+      field.querySelector('.field-error').textContent = msg || '';
+      if (msg && name === 'id') $('pubMore').open = true;
+    }
+
+    function validatePublish() {
+      const v = {
+        repoUrl: $('pubRepo').value.trim(),
+        title: $('pubTitle').value.trim(),
+        developer: $('pubDev').value.trim(),
+        desc: $('pubDesc').value.trim(),
+        id: $('pubId').value.trim()
+      };
+      const errors = {};
+      if (!v.repoUrl) errors.repoUrl = t('store.publish.err-repo-empty', 'Paste the repository link.');
+      else if (!parseRepo(v.repoUrl)) errors.repoUrl = t('store.publish.err-repo', 'Use https://github.com/owner/repo or a raw .html link.');
+      if (!v.title) errors.title = t('store.publish.err-required', 'Required.');
+      if (!v.developer) errors.developer = t('store.publish.err-required', 'Required.');
+      if (!v.desc) errors.desc = t('store.publish.err-desc', 'Say in a sentence what the app does.');
+      if (!v.id) errors.id = t('store.publish.err-required', 'Required.');
+      else if (!/^[a-zA-Z0-9_-]+$/.test(v.id)) errors.id = t('store.publish.err-id', 'Only letters, digits, - and _.');
+      ['repoUrl', 'title', 'developer', 'desc', 'id'].forEach(k => setFieldError(k, errors[k]));
+      return Object.keys(errors).length ? null : v;
+    }
+
+    ['pubTitle', 'pubDev', 'pubId'].forEach(id => $(id).addEventListener('input', () => { pub.touched.add(id); updatePreview(); }));
+    $('pubEula').addEventListener('input', renderShare);
+    $('pubRepo').addEventListener('input', onRepoInput);
+    $('pubDesc').addEventListener('input', updatePreview);
+    $('pubIconText').addEventListener('input', () => { pub.iconFile = null; $('pubIconFile').value = ''; updatePreview(); });
+    $('pubIconPick').addEventListener('click', () => $('pubIconFile').click());
+    $('pubIconFile').addEventListener('change', e => {
+      pub.iconFile = e.target.files[0] || null;
+      if (pub.iconFile) $('pubIconText').value = '';
+      updatePreview();
+    });
+    $('pubChannel').addEventListener('click', e => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      pub.channel = b.dataset.channel;
+      $('pubChannel').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+      updatePreview();
+    });
+
+    $('publishForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const status = $('publishStatus');
+      status.className = 'form-status';
+      status.textContent = '';
+      const v = validatePublish();
+      if (!v) return;
+
+      const info = parseRepo(v.repoUrl);
+      const fd = new FormData();
+      fd.append('id', v.id);
+      fd.append('title', v.title);
+      fd.append('developer', v.developer);
+      fd.append('desc', v.desc);
+      fd.append('repoUrl', info && info.git ? info.git : v.repoUrl);
+      fd.append('channel', pub.channel);
+      const eula = $('pubEula').value.trim();
+      if (eula) fd.append('eula', eula);
+      if (pub.iconFile) fd.append('iconFile', pub.iconFile);
+      else if ($('pubIconText').value.trim()) fd.append('icon', $('pubIconText').value.trim());
+      pub.shots.forEach(file => fd.append('screenshotFiles', file));
+
+      const btn = $('btnPublish');
+      btn.disabled = true;
+      status.textContent = t('store.publish.publishing', 'Adding…');
+      try {
+        const res = await fetch('/api/store/publish', { method: 'POST', body: fd });
+        const r = await res.json().catch(() => ({}));
+        if (!r.success) {
+          if (r.field) { setFieldError(r.field, r.error); status.textContent = ''; return; }
+          throw new Error(r.error || `HTTP ${res.status}`);
+        }
+        status.className = 'form-status ok';
+        status.textContent = t('store.publish.success', 'Added.');
+        $('publishForm').reset();
+        pub.touched.clear(); pub.iconFile = null;
+        pub.shots.forEach(f => f._url && URL.revokeObjectURL(f._url));
+        pub.shots = []; pub.autoShots = []; pub.autoFor = '';
+        await loadCatalog();
+        updatePreview();
+        const added = state.catalog.find(a => a.id === v.id);
+        if (added) setTimeout(() => openLandpage(v.id), 600);
+        else status.textContent = t('store.publish.success-hidden', 'Added to the Insider catalog. Turn on the Insider source in Sources to see it.');
+      } catch (err) {
+        status.className = 'form-status err';
+        status.textContent = t('store.error', 'Error: {error}', { error: err.message });
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    // ─────────── Start ───────────
+    async function init() {
+      $('appGrid').replaceChildren(...skeleton());
+      fetch('/api/users/me', { cache: 'no-store' }).then(r => r.json()).then(({ user }) => {
+        state.canInstall = !user || !!user.admin;
+        $('srcInsiders').disabled = !state.canInstall;
+        rerender();
+      }).catch(() => {});
+      await Promise.all([loadInstalled(), loadSources()]);
+      await loadCatalog();
+      rerender();
+      updatePreview();
+      checkUpdates();
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
   </script>
 </body>
 </html>

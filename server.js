@@ -87,11 +87,23 @@ const CONTENT_SECURITY_POLICY = [
   "base-uri 'self'",
   "frame-ancestors 'self'"
 ].join("; ");
+// The Sandbox app's whole job is showing another mariowOS in an iframe: local guests on
+// their own 127.0.0.1 port, or a remote PC over plain http. Only that page gets http: frames.
+const SANDBOX_APP_CSP = CONTENT_SECURITY_POLICY.replace(/frame-src [^;]*/, `frame-src 'self' https: http: ${APPS_ORIGIN}`);
+// When this kernel is itself a guest inside a host's Sandbox app, the host has to be
+// allowed to frame it (the host passes its own origins in MARIOWOS_SANDBOX_PARENT).
+const SANDBOX_PARENT = String(process.env.MARIOWOS_SANDBOX_PARENT || "")
+  .split(/\s+/).filter(origin => /^https?:\/\/[\w.-]+(:\d+)?$/.test(origin)).join(" ");
+const BASE_CSP = SANDBOX_PARENT
+  ? CONTENT_SECURITY_POLICY.replace("frame-ancestors 'self'", `frame-ancestors 'self' ${SANDBOX_PARENT}`)
+  : CONTENT_SECURITY_POLICY;
 app.use((req, res, next) => {
-  res.setHeader("Content-Security-Policy", CONTENT_SECURITY_POLICY);
+  const isSandboxApp = req.path === "/desktop/apps/sandbox/" || req.path === "/desktop/apps/sandbox/index.html";
+  res.setHeader("Content-Security-Policy", isSandboxApp ? SANDBOX_APP_CSP : BASE_CSP);
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Referrer-Policy", "no-referrer");
-  res.setHeader("X-Frame-Options", "SAMEORIGIN");
+  // X-Frame-Options can't name another origin; frame-ancestors above does the job for guests.
+  if (!SANDBOX_PARENT) res.setHeader("X-Frame-Options", "SAMEORIGIN");
   next();
 });
 
@@ -100,7 +112,7 @@ if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
   throw new Error('MARIOWOS_PORT must be a valid TCP port');
 }
 const currentOS = process.platform;
-const SERVER_EXIT_CODES = Object.freeze({ SHUTDOWN: 20, UPDATE_RESTART: 21, KERNEL_REBOOT: 22 });
+const SERVER_EXIT_CODES = Object.freeze({ SHUTDOWN: 20, UPDATE_RESTART: 21, KERNEL_REBOOT: 22, INSTALL_UPDATE: 23 });
 const BACKEND_INSTANCE_ID = process.env.MARIOWOS_BACKEND_INSTANCE_ID || null;
 let httpServer = null;
 let serverExitStarted = false;
@@ -354,15 +366,15 @@ const users = createUsers({ baseDir: __dirname, getConfig: () => config, saveCon
 // Standard (non-admin) accounts: whatever installs software, runs commands or changes the
 // system for everyone belongs to administrators. Enforced here, whatever the UI shows.
 const ADMIN_ONLY_ROUTES = [
-  /^\/api\/store\/(install|uninstall|do-upgrade|publish|eula|sideload)\b/,
+  /^\/api\/store\/(install|uninstall|do-upgrade|publish|eula|sideload|sources)\b/,
   /^\/api\/remote\/exec\b/, /^\/api\/terminal\//, /^\/api\/sandbox\//, /^\/api\/recovery\//,
-  /^\/api\/system\/(factory-reset|reset-settings|reset-desktop|restore|backup|boot-logo|update-channel|keyring|ota-update|sota-update)\b/,
+  /^\/api\/system\/(factory-reset|reset-settings|reset-desktop|restore|backup|boot-logo|update-channel|keyring|ota-update|ota-download|install-staged-update|sota-update)\b/,
   /^\/api\/users\/(create|update|delete|reset-password)\b/,
   /^\/api\/rules\/(save|enabled)\b/,
   /^\/(save-settings|clear-settings|set-password|clear-password|upload-wallpaper)$/
 ];
 // Reading is fine, except where the read itself acts or hands out secrets.
-const ADMIN_ONLY_READS = /^\/api\/(system\/(backup|keyring|ota-update|sota-update)\b|terminal\/)/;
+const ADMIN_ONLY_READS = /^\/api\/(system\/(backup|keyring|ota-update|ota-download|sota-update)\b|terminal\/)/;
 function requireAdminFor(req, res, next) {
   if (req.user?.admin || !ADMIN_ONLY_ROUTES.some(route => route.test(req.path))) return next();
   if ((req.method === "GET" || req.method === "HEAD") && !ADMIN_ONLY_READS.test(req.path)) return next();
@@ -684,10 +696,15 @@ const appIconUpload = multer({
     destination: (req, file, cb) => cb(null, path.join(__dirname, "desktop/assets")),
     filename: (req, file, cb) => {
       const safeId = req.body.id ? req.body.id.replace(/[^a-zA-Z0-9_-]/g, '') : "app";
+      // Store screenshots go next to icons; each gets a unique name.
+      if (file.fieldname === "screenshotFiles") {
+        const ext = { "image/jpeg": "jpg", "image/webp": "webp" }[file.mimetype] || "png";
+        return cb(null, `shot_${safeId}_${Date.now()}_${crypto.randomBytes(3).toString("hex")}.${ext}`);
+      }
       cb(null, `icon_${safeId}_${Date.now()}.png`);
     }
   }),
-  fileFilter: (req, file, cb) => cb(null, ["image/png", "image/jpeg"].includes(file.mimetype))
+  fileFilter: (req, file, cb) => cb(null, ["image/png", "image/jpeg"].includes(file.mimetype) || (file.fieldname === "screenshotFiles" && file.mimetype === "image/webp"))
 });
 
 app.get("/api/system/desktops", (req, res) => {
@@ -1455,7 +1472,10 @@ const DESKTOP_STYLE_SCHEMA = {
   nightWarmth: v => clampNumber(v, 10, 60),
   nightSchedule: v => ["off", "sunset", "custom"].includes(v) ? v : undefined,
   nightFrom: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : undefined,
-  nightTo: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : undefined
+  nightTo: v => /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : undefined,
+  dockMagnify: v => typeof v === "boolean" ? v : undefined,
+  tiling: v => typeof v === "boolean" ? v : undefined,
+  tilingGap: v => clampNumber(v, 0, 32)
 };
 function clampNumber(value, min, max) {
   const n = Number(value);
@@ -1776,138 +1796,334 @@ app.post("/api/system/reset-desktop", (req, res) => {
   res.json({ success: true, message: "Desktop ripristinato" });
 });
 
-const REMOTE_CATALOG_URL = "https://raw.githubusercontent.com/mariowOS/store-catalog/main/store-catalog.json";
-const localCatalogFile = path.join(__dirname, "store-catalog.json");
+// --- STORE: CATALOG SOURCES ---
+// The Store reads two catalogs. "stable" is always on; "insiders" is an opt-in source of
+// early builds. Sources are additive (you never switch away from stable): an app can be
+// stable-only, insiders-only, or exist in both, and then the user picks one at install.
+// Each source is a remote JSON list cached locally, merged with apps published on this
+// machine. A stable entry may also carry an inline `insiders: { repoUrl, eula, desc }`.
+const STORE_CATALOG_SOURCES = {
+  stable: {
+    remote: "https://raw.githubusercontent.com/mariowOS/store-catalog/main/store-catalog.json",
+    local: path.join(__dirname, "store-catalog.json")
+  },
+  insiders: {
+    remote: "https://raw.githubusercontent.com/mariowOS/store-catalog/main/store-catalog-insiders.json",
+    local: path.join(__dirname, "store-catalog-insiders.json")
+  }
+};
+const STORE_CHANNELS = ["stable", "insiders"];
+const localCatalogFile = STORE_CATALOG_SOURCES.stable.local;
+if (!config.storeSources || typeof config.storeSources !== "object") config.storeSources = { insiders: false };
+const storeChannel = value => (value === "insiders" ? "insiders" : "stable");
+const insidersEnabled = () => Boolean(config.storeSources && config.storeSources.insiders);
 
-// The app store is the public software layer of mariowOS.
-// It blends a remote catalog with local packages so the desktop can stay fresh without
-// losing custom apps that are built specifically for a branch or device.
-app.get("/api/store/catalog", async (req, res) => {
-  let catalog = [];
+function readLocalCatalog(channel) {
   try {
-    const response = await fetch(REMOTE_CATALOG_URL);
-    if (response.ok) {
-      catalog = await response.json();
-      
-      if (fs.existsSync(localCatalogFile)) {
-        const localCatalog = JSON.parse(fs.readFileSync(localCatalogFile, "utf8"));
-        const remoteIds = new Set(catalog.map(a => a.id));
-        localCatalog.forEach(localApp => {
-          if (!remoteIds.has(localApp.id)) catalog.push(localApp);
-        });
-      }
-      fs.writeFileSync(localCatalogFile, JSON.stringify(catalog, null, 2));
-    }
-  } catch (err) {
-    if (fs.existsSync(localCatalogFile)) {
-      catalog = JSON.parse(fs.readFileSync(localCatalogFile, "utf8"));
+    const data = JSON.parse(fs.readFileSync(STORE_CATALOG_SOURCES[channel].local, "utf8"));
+    return Array.isArray(data) ? data.filter(a => a && typeof a.id === "string") : [];
+  } catch (e) { return []; }
+}
+
+function writeLocalCatalog(channel, catalog) {
+  fs.writeFileSync(STORE_CATALOG_SOURCES[channel].local, JSON.stringify(catalog, null, 2));
+}
+
+// Fetch one source and merge in the apps that only exist locally (published here).
+// Offline, the cached copy is used as-is.
+async function refreshCatalog(channel) {
+  const local = readLocalCatalog(channel);
+  try {
+    const response = await fetch(STORE_CATALOG_SOURCES[channel].remote);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const remote = await response.json();
+    if (!Array.isArray(remote)) throw new Error("Catalog is not a list");
+    const catalog = remote.filter(a => a && typeof a.id === "string");
+    const remoteIds = new Set(catalog.map(a => a.id));
+    const localIds = new Set(local.map(a => a.id));
+    const addedCount = catalog.filter(a => !localIds.has(a.id)).length;
+    local.forEach(a => { if (!remoteIds.has(a.id)) catalog.push(a); });
+    writeLocalCatalog(channel, catalog);
+    return { ok: true, catalog, addedCount };
+  } catch (e) {
+    return { ok: false, catalog: local, addedCount: 0, error: e.message };
+  }
+}
+
+function catalogVariant(channel, entry) {
+  const v = { channel, repoUrl: entry.repoUrl };
+  if (entry.eula) v.eula = entry.eula;
+  if (entry.desc) v.desc = entry.desc;
+  if (entry.version) v.version = String(entry.version);
+  if (Array.isArray(entry.screenshots)) v.screenshots = entry.screenshots;
+  return v;
+}
+
+// One list of apps, each with the builds ("variants") the enabled sources offer.
+// Top-level repoUrl/eula stay the default build, so older clients (Terminal's
+// `store add`) keep working unchanged.
+function buildStoreCatalog(stable, insiders) {
+  const apps = new Map();
+  for (const entry of stable) {
+    const { insiders: inline, ...rest } = entry;
+    const item = { ...rest, variants: [catalogVariant("stable", entry)] };
+    if (inline && insiders && inline.repoUrl) item.variants.push(catalogVariant("insiders", { ...entry, eula: null, desc: null, version: null, screenshots: null, ...inline }));
+    apps.set(entry.id, item);
+  }
+  for (const entry of insiders || []) {
+    const existing = apps.get(entry.id);
+    if (existing) {
+      existing.variants = existing.variants.filter(v => v.channel !== "insiders");
+      existing.variants.push(catalogVariant("insiders", entry));
+    } else {
+      const { insiders: _ignored, ...rest } = entry;
+      apps.set(entry.id, { ...rest, variants: [catalogVariant("insiders", entry)] });
     }
   }
-  res.json(catalog);
+  return [...apps.values()].map(app => ({
+    ...app,
+    channels: app.variants.map(v => v.channel),
+    insidersOnly: app.variants.every(v => v.channel === "insiders")
+  }));
+}
+
+async function loadStoreCatalog({ refresh = true } = {}) {
+  const withInsiders = insidersEnabled();
+  const [stable, insiders] = await Promise.all([
+    refresh ? refreshCatalog("stable").then(r => r.catalog) : readLocalCatalog("stable"),
+    withInsiders ? (refresh ? refreshCatalog("insiders").then(r => r.catalog) : readLocalCatalog("insiders")) : null
+  ]);
+  return buildStoreCatalog(stable, insiders);
+}
+
+app.get("/api/store/catalog", async (req, res) => {
+  res.json(await loadStoreCatalog());
 });
 
 app.get("/api/store/update", async (req, res) => {
-  let oldCatalog = [];
-  if (fs.existsSync(localCatalogFile)) oldCatalog = JSON.parse(fs.readFileSync(localCatalogFile, "utf8"));
-  const oldIds = new Set(oldCatalog.map(a => a.id));
-
-  try {
-    const response = await fetch(REMOTE_CATALOG_URL);
-    if (!response.ok) throw new Error("Fetch failed");
-    const remoteCatalog = await response.json();
-    
-    let addedCount = 0;
-    remoteCatalog.forEach(app => { if (!oldIds.has(app.id)) addedCount++; });
-    
-    const remoteIds = new Set(remoteCatalog.map(a => a.id));
-    oldCatalog.forEach(localApp => {
-      if (!remoteIds.has(localApp.id)) remoteCatalog.push(localApp);
-    });
-
-    fs.writeFileSync(localCatalogFile, JSON.stringify(remoteCatalog, null, 2));
-    res.json({ success: true, addedCount });
-  } catch (err) {
-    res.status(500).json({ success: false, error: "Failed to fetch remote catalog" });
-  }
+  const channels = insidersEnabled() ? STORE_CHANNELS : ["stable"];
+  const results = await Promise.all(channels.map(refreshCatalog));
+  if (results.every(r => !r.ok)) return res.status(500).json({ success: false, error: "Failed to fetch remote catalog" });
+  res.json({ success: true, addedCount: results.reduce((n, r) => n + r.addedCount, 0) });
 });
 
-// Version-aware upgrade check. For each installed app we compare the version it was
-// installed with against the version declared in its repo's version.json (the app
-// author's own file, on their git). An app is upgradable only when the repo declares
-// a strictly NEWER semantic version — the same rule the system updater uses.
+app.get("/api/store/sources", (req, res) => {
+  res.json({ stable: true, insiders: insidersEnabled() });
+});
+
+app.post("/api/store/sources", (req, res) => {
+  config.storeSources = { insiders: Boolean(req.body && req.body.insiders) };
+  saveConfig();
+  res.json({ success: true, stable: true, insiders: insidersEnabled() });
+});
+
+// The version each build of a catalog app declares (catalog field, else its repo's
+// version.json). The repo is looked up in the catalog, never taken from the request.
+app.get("/api/store/app-versions", async (req, res) => {
+  const id = String(req.query.id || "");
+  const entry = (await loadStoreCatalog({ refresh: false })).find(a => a.id === id);
+  if (!entry) return res.status(404).json({ success: false, error: "Unknown app" });
+  const versions = {};
+  await Promise.all(entry.variants.map(async v => {
+    versions[v.channel] = v.version || (isAllowedRepoUrl(v.repoUrl) && /\.git$/.test(v.repoUrl) ? await fetchRepoVersion(v.repoUrl) : null);
+  }));
+  res.json({ success: true, versions });
+});
+
+// --- STORE: APP UPDATES ---
+// Three kinds of installed app, three ways to tell that a newer build exists:
+//  - git clone with version.json on both sides: the repo must declare a strictly NEWER
+//    semantic version (same rule as the system updater);
+//  - git clone without version.json: the remote HEAD commit differs from the local one;
+//  - single raw .html file: the published file's SHA-256 differs from the installed one.
+// Sideloaded ("local:") apps have no remote and are never updated.
+function storeGit(args, cwd) {
+  return new Promise(resolve => {
+    let out = "";
+    const child = spawn("git", args, { cwd });
+    child.stdout.on("data", d => { out += d; });
+    child.on("error", () => resolve({ ok: false, out: "" }));
+    child.on("close", code => resolve({ ok: code === 0, out: out.trim() }));
+  });
+}
+
+function installedAppFile(app) {
+  return app.appId === "tiles"
+    ? path.join(__dirname, "desktop", "com.mariowos.twm.html")
+    : path.join(__dirname, "desktop", "apps", app.appId, "index.html");
+}
+
+const sha256 = data => crypto.createHash("sha256").update(data).digest("hex");
+
+async function checkAppUpdate(app) {
+  if (!isAllowedRepoUrl(app.repoUrl)) return null;
+  const dir = path.join(__dirname, "desktop", "apps", app.appId);
+  const base = { appId: app.appId, title: app.title, icon: app.icon, channel: storeChannel(app.channel) };
+
+  if (fs.existsSync(path.join(dir, ".git"))) {
+    const current = readInstalledAppVersion(app.appId) || app.version || null;
+    const latest = await fetchRepoVersion(app.repoUrl);
+    if (current && latest) {
+      return isNewerVersion(latest, current) ? { ...base, kind: "git", current, latest } : null;
+    }
+    const [local, remote] = await Promise.all([
+      storeGit(["rev-parse", "HEAD"], dir),
+      storeGit(["ls-remote", "origin", "HEAD"], dir)
+    ]);
+    const remoteHead = remote.ok ? remote.out.split(/\s+/)[0] : "";
+    if (!local.ok || !remoteHead || remoteHead === local.out) return null;
+    return { ...base, kind: "git", current: current || local.out.slice(0, 7), latest: latest || remoteHead.slice(0, 7) };
+  }
+
+  if (!/\.git$/.test(app.repoUrl)) {
+    const file = installedAppFile(app);
+    if (!fs.existsSync(file)) return null;
+    try {
+      const r = await fetch(app.repoUrl);
+      if (!r.ok) return null;
+      const content = await r.text();
+      if (sha256(content) === sha256(fs.readFileSync(file, "utf8"))) return null;
+      return { ...base, kind: "file", current: app.version || "installed", latest: "new build", content };
+    } catch (e) { return null; }
+  }
+  return null;
+}
+
+async function applyAppUpdate(app, update) {
+  if (update.kind === "file") {
+    fs.writeFileSync(installedAppFile(app), update.content);
+  } else {
+    const dir = path.join(__dirname, "desktop", "apps", app.appId);
+    // Pull from the pinned origin only; never a URL taken from the request body.
+    const fetched = await storeGit(["fetch", "--depth", "1", "origin", "HEAD"], dir);
+    if (!fetched.ok) return false;
+    const reset = await storeGit(["reset", "--hard", "FETCH_HEAD"], dir);
+    if (!reset.ok) return false;
+  }
+  // Only a version.json counts as a version; commit/file builds stay unversioned.
+  app.version = readInstalledAppVersion(app.appId) || null;
+  app.updatedAt = new Date().toISOString();
+  return true;
+}
+
+async function findAppUpdates(appIds) {
+  const wanted = Array.isArray(appIds) && appIds.length ? new Set(appIds.map(String)) : null;
+  const apps = (config.installedApps || []).filter(a => a && a.appId && (!wanted || wanted.has(a.appId)));
+  const results = await Promise.all(apps.map(a => checkAppUpdate(a).catch(() => null)));
+  return apps.map((app, i) => ({ app, update: results[i] })).filter(r => r.update);
+}
+
 app.get("/api/store/check-upgrades", async (req, res) => {
-  const installedApps = config.installedApps || [];
-  const upgrades = [];
-  for (const app of installedApps) {
-    const targetPath = path.join(__dirname, "desktop/apps", app.appId);
-    if (!fs.existsSync(targetPath) || !isAllowedRepoUrl(app.repoUrl)) continue;
-    const current = app.version || readInstalledAppVersion(app.appId);
-    const latest = await fetchRepoVersion(app.repoUrl);
-    if (latest && (!current || isNewerVersion(latest, current))) {
-      upgrades.push({ appId: app.appId, title: app.title, current: current || "unknown", latest });
-    }
-  }
-  res.json({ success: true, upgrades });
+  const found = await findAppUpdates();
+  res.json({ success: true, upgrades: found.map(({ update: { content, ...u } }) => u) });
 });
 
-// Apply upgrades. Only apps that are git clones from an allowed repo and that actually
-// declare a newer version.json are pulled; the recorded version is then refreshed.
+// Body: { appIds?: string[] } (all pending updates when omitted).
 app.post("/api/store/do-upgrade", async (req, res) => {
-  const installedApps = config.installedApps || [];
-  let count = 0;
+  const found = await findAppUpdates(req.body && req.body.appIds);
   const updated = [];
-  for (const app of installedApps) {
-    const targetPath = path.join(__dirname, "desktop/apps", app.appId);
-    if (!fs.existsSync(path.join(targetPath, ".git")) || !isAllowedRepoUrl(app.repoUrl)) continue;
-    const current = app.version || readInstalledAppVersion(app.appId);
-    const latest = await fetchRepoVersion(app.repoUrl);
-    if (!latest || (current && !isNewerVersion(latest, current))) continue;
-
-    const pulled = await new Promise(resolve => {
-      // Pull from the pinned origin only; never a URL taken from the request body.
-      const child = spawn("git", ["pull", "--ff-only"], { cwd: targetPath });
-      child.on("error", () => resolve(false));
-      child.on("close", code => resolve(code === 0));
-    });
-    if (pulled) {
-      count++;
-      app.version = readInstalledAppVersion(app.appId) || latest;
-      updated.push({ appId: app.appId, version: app.version });
-    }
+  const failed = [];
+  for (const { app, update } of found) {
+    if (await applyAppUpdate(app, update)) updated.push({ appId: app.appId, version: app.version });
+    else failed.push(app.appId);
   }
-  if (count > 0) fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
-  res.json({ success: true, count, updated });
+  if (updated.length) fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
+  res.json({ success: failed.length === 0, count: updated.length, updated, failed });
 });
 
-app.post("/api/store/publish", appIconUpload.single("iconFile"), (req, res) => {
-  try {
-    const { id, title, developer, desc, repoUrl, icon, eula } = req.body;
-    if (!id || !title || !developer || !desc || !repoUrl) {
-      return res.status(400).json({ success: false, error: "Missing required fields" });
+// --- STORE: SCREENSHOTS ---
+// A catalog entry may list its own screenshots. Otherwise they are read from the app's
+// GitHub repository: image files in screenshots/ (or .github/screenshots/), sorted by
+// name. Results are cached for an hour so browsing doesn't burn the GitHub API quota.
+const SCREENSHOT_EXT = /\.(png|jpe?g|webp|gif)$/i;
+const screenshotCache = new Map();
+
+async function fetchRepoScreenshots(repoUrl) {
+  const match = String(repoUrl || "").replace(/\.git$/, "").match(/^https:\/\/github\.com\/([^/]+)\/([^/?#]+)/i);
+  if (!match) return [];
+  const key = `${match[1]}/${match[2]}`.toLowerCase();
+  const cached = screenshotCache.get(key);
+  if (cached && Date.now() - cached.at < 60 * 60 * 1000) return cached.list;
+  let list = [];
+  for (const dir of ["screenshots", ".github/screenshots"]) {
+    try {
+      const r = await fetch(`https://api.github.com/repos/${match[1]}/${match[2]}/contents/${dir}`, {
+        headers: { Accept: "application/vnd.github+json", "User-Agent": "mariowOS-Store" }
+      });
+      if (!r.ok) continue;
+      const items = await r.json();
+      if (!Array.isArray(items)) continue;
+      list = items
+        .filter(item => item && item.type === "file" && SCREENSHOT_EXT.test(item.name) && typeof item.download_url === "string")
+        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+        .slice(0, 10)
+        .map(item => item.download_url);
+      if (list.length) break;
+    } catch (e) { /* offline: no screenshots */ }
+  }
+  screenshotCache.set(key, { at: Date.now(), list });
+  return list;
+}
+
+// ?id= for a catalog app (its build for ?channel=), or ?repoUrl= to preview while submitting.
+app.get("/api/store/screenshots", async (req, res) => {
+  let repoUrl = "";
+  if (req.query.id) {
+    const entry = (await loadStoreCatalog({ refresh: false })).find(a => a.id === String(req.query.id));
+    if (!entry) return res.status(404).json({ success: false, error: "Unknown app" });
+    const variant = entry.variants.find(v => v.channel === storeChannel(req.query.channel)) || entry.variants[0];
+    const own = (variant && Array.isArray(variant.screenshots) && variant.screenshots.length && variant.screenshots) || entry.screenshots;
+    if (Array.isArray(own) && own.length) {
+      return res.json({ success: true, source: "catalog", screenshots: own.filter(u => typeof u === "string").slice(0, 10) });
     }
+    repoUrl = (variant && variant.repoUrl) || entry.repoUrl;
+  } else {
+    repoUrl = String(req.query.repoUrl || "");
+    if (!isAllowedRepoUrl(repoUrl)) return res.status(400).json({ success: false, error: "Not a GitHub repository" });
+  }
+  res.json({ success: true, source: "repo", screenshots: await fetchRepoScreenshots(repoUrl) });
+});
+
+// --- STORE: PUBLISHING ---
+// Adds an app to this machine's catalog for the chosen source. The ID is the folder the
+// app installs into, so it follows the same rule as install (letters, digits, - and _).
+app.post("/api/store/publish", appIconUpload.fields([{ name: "iconFile", maxCount: 1 }, { name: "screenshotFiles", maxCount: 8 }]), (req, res) => {
+  const iconFile = req.files && req.files.iconFile && req.files.iconFile[0];
+  const shotFiles = (req.files && req.files.screenshotFiles) || [];
+  const discardUploads = () => [iconFile, ...shotFiles].forEach(file => { if (file) fs.rm(file.path, { force: true }, () => {}); });
+  const fail = (status, body) => { discardUploads(); return res.status(status).json(body); };
+  try {
+    const field = (name, max) => (typeof req.body[name] === "string" ? req.body[name].trim().slice(0, max) : "");
+    const id = field("id", 64);
+    const title = field("title", 80);
+    const developer = field("developer", 80);
+    const desc = field("desc", 4000);
+    const repoUrl = field("repoUrl", 500);
+    const icon = field("icon", 300);
+    const eula = field("eula", 20000);
+    const channel = storeChannel(req.body.channel);
+
+    if (!id || !title || !developer || !desc || !repoUrl) {
+      return fail(400, { success: false, error: "Missing required fields" });
+    }
+    if (!isValidAppId(id)) return fail(400, { success: false, field: "id", error: "The ID can only use letters, digits, - and _" });
+    if (isBuiltInAppId(id)) return fail(409, { success: false, field: "id", error: `"${id}" is a built-in app` });
+    if (!isAllowedRepoUrl(repoUrl)) return fail(400, { success: false, field: "repoUrl", error: "Use an https github.com repository or raw .html link" });
 
     let iconPath = "📦";
-    if (req.file) {
-      iconPath = `/desktop/assets/${req.file.filename}`;
-    } else if (icon) {
-      iconPath = icon;
-    } else {
-      iconPath = getRawGithubUrl(repoUrl) || "📦";
-    }
+    if (iconFile) iconPath = `/desktop/assets/${iconFile.filename}`;
+    else if (icon) iconPath = icon;
+    else iconPath = getRawGithubUrl(repoUrl) || "📦";
 
     const newApp = { id, title, developer, desc, repoUrl, icon: iconPath };
     if (eula) newApp.eula = eula;
+    // Uploaded screenshots win; without any, the Store reads the repo's screenshots/ folder.
+    if (shotFiles.length) newApp.screenshots = shotFiles.map(file => `/desktop/assets/${file.filename}`);
 
-    let catalog = [];
-    if (fs.existsSync(localCatalogFile)) {
-      catalog = JSON.parse(fs.readFileSync(localCatalogFile, "utf8"));
-    }
-    
-    catalog = catalog.filter(a => a.id !== id);
+    const catalog = readLocalCatalog(channel).filter(a => a.id !== id);
     catalog.push(newApp);
-    
-    fs.writeFileSync(localCatalogFile, JSON.stringify(catalog, null, 2));
-    res.json({ success: true, app: newApp });
+    writeLocalCatalog(channel, catalog);
+    res.json({ success: true, app: { ...newApp, channel } });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -1948,6 +2164,7 @@ app.post("/api/store/install", async (req, res) => {
   // It accepts GitHub repos or direct file URLs, downloads the app bundle, and registers
   // it inside the desktop shell so it behaves like a native mariowOS app.
   const { appId, title, icon, repoUrl } = req.body;
+  const channel = storeChannel(req.body.channel);
   if (!isValidAppId(appId)) return res.status(400).json({ success: false, error: "Invalid app ID" });
   if (isBuiltInAppId(appId)) return res.status(409).json({ success: false, error: `"${appId}" is a built-in app and cannot be replaced` });
   // SECURITY (A-07 adjacent): only install from an https github.com URL.
@@ -1997,12 +2214,14 @@ app.post("/api/store/install", async (req, res) => {
     const existing = config.installedApps.find(app => app.appId === appId);
     if (existing) {
       existing.repoUrl = repoUrl;
-      if (installedVersion) existing.version = installedVersion;
+      existing.channel = channel;
+      existing.version = installedVersion || null;
+      existing.updatedAt = new Date().toISOString();
     } else {
-      config.installedApps.push({ appId, title, icon: localIconPath, url: relativeUrl, repoUrl, version: installedVersion || null });
+      config.installedApps.push({ appId, title, icon: localIconPath, url: relativeUrl, repoUrl, channel, version: installedVersion || null, installedAt: new Date().toISOString() });
     }
     fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
-    res.json({ success: true, message: "Installation complete" });
+    res.json({ success: true, message: "Installation complete", channel, version: installedVersion || null });
   }
 
   const isSingleFile = !repoUrl.endsWith(".git");
@@ -2471,6 +2690,12 @@ setInterval(() => {
 
 
 // --- SANDBOX VM ENGINE ---
+// Each VM lives in desktop/apps/sandbox/<vmId>/ with:
+//   disk/                 the extracted mariowOS image (must contain a server.js)
+//   snapshots/<id>/disk/  full copies of disk/, plus meta.json { name, createdAt }
+// The guest runs as a separate `node` process on its own port. Its options (memory, port,
+// env, auto-restart) are sent by the Sandbox app with every start and kept here for restarts.
+const net = require("net");
 const sandboxBaseDir = path.join(__dirname, "desktop/apps/sandbox");
 // SECURITY (C-06): vmId is used to build filesystem paths and then code is executed
 // from the resulting directory. Without validation a value like "../../.." escapes
@@ -2478,8 +2703,17 @@ const sandboxBaseDir = path.join(__dirname, "desktop/apps/sandbox");
 function isValidVmId(vmId) {
   return typeof vmId === 'string' && /^[a-zA-Z0-9_-]+$/.test(vmId);
 }
-const activeVMs = {}; 
-let currentSandboxPort = 3001;
+const activeVMs = {};   // vmId -> { process, port, config, startedAt, restarts, stopping }
+const vmExits = {};     // vmId -> { code, at, crashed } for the last time a guest ended
+const vmLogs = {};      // vmId -> { seq, lines: [{ n, t, s, text }] }
+const SANDBOX_LOG_LINES = 1000;
+const SANDBOX_PORT_FIRST = PORT + 10;
+const SANDBOX_RESERVED_PORTS = new Set([PORT, APPS_PORT]);
+const SANDBOX_MEMORY_MB = [0, 256, 512, 1024, 2048, 4096, 8192];
+
+const vmDiskDir = vmId => path.join(sandboxBaseDir, vmId, "disk");
+const vmSnapshotsDir = vmId => path.join(sandboxBaseDir, vmId, "snapshots");
+const psQuote = value => `'${String(value).replace(/'/g, "''")}'`;
 
 function findServerJs(dir) {
   if (!fs.existsSync(dir)) return null;
@@ -2489,11 +2723,180 @@ function findServerJs(dir) {
     let files = fs.readdirSync(current);
     for (let f of files) {
        let fullPath = path.join(current, f);
+       if (f === 'node_modules') continue;
        if (fs.statSync(fullPath).isDirectory()) { queue.push(fullPath); }
        else if (f === 'server.js') { return fullPath; }
     }
   }
   return null;
+}
+
+async function dirSize(dir) {
+  let total = 0;
+  const stack = [dir];
+  while (stack.length) {
+    const current = stack.pop();
+    let entries;
+    try { entries = await fs.promises.readdir(current, { withFileTypes: true }); } catch (e) { continue; }
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) stack.push(full);
+      else if (entry.isFile()) { try { total += (await fs.promises.stat(full)).size; } catch (e) {} }
+    }
+  }
+  return total;
+}
+
+function vmLog(vmId, stream, chunk) {
+  const log = vmLogs[vmId] || (vmLogs[vmId] = { seq: 0, lines: [] });
+  String(chunk).split(/\r?\n/).forEach(text => {
+    if (!text && stream !== 'sys') return;
+    log.lines.push({ n: ++log.seq, t: Date.now(), s: stream, text: text.slice(0, 4000) });
+  });
+  if (log.lines.length > SANDBOX_LOG_LINES) log.lines.splice(0, log.lines.length - SANDBOX_LOG_LINES);
+}
+
+function isPortFree(port) {
+  return new Promise(resolve => {
+    const probe = net.createServer();
+    probe.once('error', () => resolve(false));
+    probe.once('listening', () => probe.close(() => resolve(true)));
+    probe.listen(port);
+  });
+}
+
+function isPortListening(port) {
+  return new Promise(resolve => {
+    const socket = net.connect({ port, host: '127.0.0.1' });
+    const done = ok => { socket.destroy(); resolve(ok); };
+    socket.once('connect', () => done(true));
+    socket.once('error', () => done(false));
+    socket.setTimeout(500, () => done(false));
+  });
+}
+
+const portTakenByVm = (port, exceptVmId) =>
+  Object.keys(activeVMs).some(id => id !== exceptVmId && activeVMs[id].port === port);
+
+async function pickSandboxPort(vmId, wanted) {
+  if (wanted) {
+    if (SANDBOX_RESERVED_PORTS.has(wanted)) throw new Error(`Port ${wanted} is used by mariowOS itself.`);
+    if (portTakenByVm(wanted, vmId)) throw new Error(`Port ${wanted} is already used by another sandbox.`);
+    if (!(await isPortFree(wanted))) throw new Error(`Port ${wanted} is already in use on this PC.`);
+    return wanted;
+  }
+  for (let port = SANDBOX_PORT_FIRST; port < SANDBOX_PORT_FIRST + 500; port++) {
+    if (SANDBOX_RESERVED_PORTS.has(port) || portTakenByVm(port, vmId)) continue;
+    if (await isPortFree(port)) return port;
+  }
+  throw new Error("No free port was found for the sandbox.");
+}
+
+// Only the options the backend can enforce, clamped to sane values.
+function normalizeVmConfig(raw) {
+  const cfg = raw && typeof raw === 'object' ? raw : {};
+  const memoryMB = SANDBOX_MEMORY_MB.includes(Number(cfg.memoryMB)) ? Number(cfg.memoryMB) : 0;
+  const port = Number(cfg.port);
+  const env = {};
+  if (cfg.env && typeof cfg.env === 'object') {
+    Object.keys(cfg.env).slice(0, 50).forEach(key => {
+      if (/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(key) && key !== 'PORT') env[key] = String(cfg.env[key]).slice(0, 2000);
+    });
+  }
+  return {
+    memoryMB,
+    port: Number.isInteger(port) && port >= 1024 && port <= 65535 ? port : 0,
+    autoRestart: !!cfg.autoRestart,
+    env
+  };
+}
+
+function killVmProcess(vm) {
+  if (!vm || !vm.process) return;
+  vm.stopping = true;
+  const pid = vm.process.pid;
+  if (process.platform === 'win32' && pid) {
+    // The guest OS starts helpers of its own; take the whole tree down.
+    exec(`taskkill /pid ${pid} /T /F`, () => {});
+  } else {
+    try { vm.process.kill(); } catch (e) {}
+  }
+}
+
+async function startVm(vmId, config, restarts = 0) {
+  const targetServerJs = findServerJs(vmDiskDir(vmId));
+  if (!targetServerJs) throw new Error("No system kernel (server.js) found in this virtual disk.");
+
+  const port = await pickSandboxPort(vmId, config.port);
+  const vmCwd = path.dirname(targetServerJs);
+  const wrapperCode = `
+    const http = require('http');
+    const originalListen = http.Server.prototype.listen;
+    http.Server.prototype.listen = function(...args) {
+      if (typeof args[0] === 'number') {
+        args[0] = ${port};
+      } else if (typeof args[0] === 'object' && args[0] !== null && args[0].port) {
+        args[0].port = ${port};
+      }
+      return originalListen.apply(this, args);
+    };
+    require('./server.js');
+  `;
+  fs.writeFileSync(path.join(vmCwd, 'sandbox-wrapper.js'), wrapperCode);
+
+  const args = [];
+  if (config.memoryMB) args.push(`--max-old-space-size=${config.memoryMB}`);
+  args.push('sandbox-wrapper.js');
+
+  vmLog(vmId, 'sys', `Starting guest on port ${port}${config.memoryMB ? ` with ${config.memoryMB} MB of memory` : ''}…`);
+  const p = spawn('node', args, {
+    cwd: vmCwd,
+    env: { ...process.env, ...config.env, PORT: String(port), MARIOWOS_PORT: String(port), MARIOWOS_SANDBOX: '1', MARIOWOS_SANDBOX_PARENT: `http://127.0.0.1:${PORT} http://localhost:${PORT}` }
+  });
+  const vm = { process: p, port, config, startedAt: Date.now(), restarts, stopping: false };
+  activeVMs[vmId] = vm;
+  delete vmExits[vmId];
+
+  p.stdout.on('data', chunk => vmLog(vmId, 'out', chunk));
+  p.stderr.on('data', chunk => vmLog(vmId, 'err', chunk));
+  p.on('error', err => vmLog(vmId, 'sys', `Could not start the guest: ${err.message}`));
+  p.on('exit', code => {
+    if (activeVMs[vmId] === vm) delete activeVMs[vmId];
+    const crashed = !vm.stopping && code !== 0;
+    vmExits[vmId] = { code, at: Date.now(), crashed };
+    vmLog(vmId, 'sys', vm.stopping ? 'Guest shut down.' : `Guest exited with code ${code}.`);
+    // Give up after a few quick crashes in a row so a broken disk can't loop forever.
+    const ranLong = Date.now() - vm.startedAt > 60000;
+    const nextRestarts = ranLong ? 0 : restarts + 1;
+    if (crashed && config.autoRestart && nextRestarts <= 3 && !activeVMs[vmId]) {
+      vmLog(vmId, 'sys', `Restarting automatically (${nextRestarts}/3)…`);
+      setTimeout(() => {
+        if (!activeVMs[vmId]) startVm(vmId, config, nextRestarts).catch(err => vmLog(vmId, 'sys', err.message));
+      }, 2000);
+    }
+  });
+
+  // Wait until the guest actually answers, so the app doesn't show a connection error.
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    if (activeVMs[vmId] !== vm) {
+      const tail = (vmLogs[vmId]?.lines || []).filter(l => l.s === 'err').slice(-3).map(l => l.text).join('\n');
+      throw new Error(`The guest stopped while booting.${tail ? '\n\n' + tail : ''}`);
+    }
+    if (await isPortListening(port)) break;
+    await new Promise(r => setTimeout(r, 250));
+  }
+  return vm;
+}
+
+function stopVm(vmId) {
+  return new Promise(resolve => {
+    const vm = activeVMs[vmId];
+    if (!vm) return resolve();
+    const timer = setTimeout(resolve, 5000);
+    vm.process.once('exit', () => { clearTimeout(timer); resolve(); });
+    killVmProcess(vm);
+  });
 }
 
 const sandboxUpload = multer({
@@ -2507,6 +2910,63 @@ const sandboxUpload = multer({
   })
 });
 
+// Totals from a zip's central directory, so extraction progress has something to count against.
+function zipTotals(zipPath) {
+  try {
+    const fd = fs.openSync(zipPath, 'r');
+    const size = fs.fstatSync(fd).size;
+    const tailLen = Math.min(size, 65557);
+    const tail = Buffer.alloc(tailLen);
+    fs.readSync(fd, tail, 0, tailLen, size - tailLen);
+    let eocd = -1;
+    for (let i = tailLen - 22; i >= 0; i--) if (tail.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) { fs.closeSync(fd); return null; }
+    const cdSize = tail.readUInt32LE(eocd + 12), cdOffset = tail.readUInt32LE(eocd + 16);
+    if (cdSize === 0xffffffff || cdOffset === 0xffffffff) { fs.closeSync(fd); return null; } // zip64: skip totals
+    const cd = Buffer.alloc(cdSize);
+    fs.readSync(fd, cd, 0, cdSize, cdOffset);
+    fs.closeSync(fd);
+    let files = 0, bytes = 0, p = 0;
+    while (p + 46 <= cd.length && cd.readUInt32LE(p) === 0x02014b50) {
+      const nameLen = cd.readUInt16LE(p + 28), extraLen = cd.readUInt16LE(p + 30), commentLen = cd.readUInt16LE(p + 32);
+      const name = cd.toString('utf8', p + 46, p + 46 + nameLen);
+      if (!name.endsWith('/')) { files++; bytes += cd.readUInt32LE(p + 24); }
+      p += 46 + nameLen + extraLen + commentLen;
+    }
+    return { files, bytes };
+  } catch (e) { return null; }
+}
+
+const sandboxMounts = {}; // vmId -> { name, totals, startedAt, measuring, done, bytes }
+const windowsTar = process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\Windows', 'System32', 'tar.exe') : null;
+
+function extractZip(zipPath, dest, cb) {
+  if (process.platform !== 'win32') return exec(`unzip -o -q "${zipPath}" -d "${dest}"`, { maxBuffer: 16 * 1024 * 1024 }, cb);
+  const expand = () => exec(`powershell.exe -nologo -noprofile -command "Expand-Archive -LiteralPath ${psQuote(zipPath)} -DestinationPath ${psQuote(dest)} -Force"`, cb);
+  // Windows' own bsdtar reads zips and is many times faster than Expand-Archive.
+  if (!fs.existsSync(windowsTar)) return expand();
+  const t = spawn(windowsTar, ['-x', '-f', zipPath, '-C', dest]);
+  t.on('error', expand);
+  t.on('exit', code => code === 0 ? cb(null) : (fs.rmSync(dest, { recursive: true, force: true }), fs.mkdirSync(dest, { recursive: true }), expand()));
+}
+
+app.get("/api/sandbox/mount-progress", async (req, res) => {
+  const vmId = req.query.vmId;
+  if (!isValidVmId(vmId)) return res.status(400).json({ success: false, error: "Invalid VM ID." });
+  const m = sandboxMounts[vmId];
+  if (!m) return res.json({ success: true, active: false });
+  if (!m.measuring) {
+    m.measuring = true;
+    try { m.bytes = await dirSize(vmDiskDir(vmId)); } finally { m.measuring = false; }
+  }
+  const total = m.totals ? m.totals.bytes : 0;
+  res.json({
+    success: true, active: true, name: m.name,
+    extractedBytes: m.bytes || 0, totalBytes: total, totalFiles: m.totals ? m.totals.files : 0,
+    percent: total ? Math.min(99, Math.round((m.bytes || 0) / total * 100)) : null
+  });
+});
+
 app.post("/api/sandbox/upload", sandboxUpload.single("vmZip"), (req, res) => {
   if (!req.file) return res.status(400).json({ success: false, error: "No file uploaded" });
   
@@ -2515,98 +2975,79 @@ app.post("/api/sandbox/upload", sandboxUpload.single("vmZip"), (req, res) => {
     fs.unlinkSync(req.file.path);
     return res.status(400).json({ success: false, error: "Valid Virtual Machine ID is required." });
   }
+  if (activeVMs[vmId] || sandboxMounts[vmId]) {
+    fs.unlinkSync(req.file.path);
+    return res.status(409).json({ success: false, error: activeVMs[vmId] ? "Shut down the sandbox before mounting another disk." : "A disk is already being mounted." });
+  }
 
-  const vmDisk = path.join(sandboxBaseDir, vmId, "disk");
-  
+  const vmDisk = vmDiskDir(vmId);
   if (fs.existsSync(vmDisk)) fs.rmSync(vmDisk, { recursive: true, force: true });
   fs.mkdirSync(vmDisk, { recursive: true });
 
   const zipPath = req.file.path;
-  
-  let extractCmd = "";
-  if (process.platform === "win32") {
-    extractCmd = `powershell.exe -nologo -noprofile -command "Expand-Archive -Path '${zipPath}' -DestinationPath '${vmDisk}' -Force"`;
-  } else {
-    extractCmd = `unzip -o "${zipPath}" -d "${vmDisk}"`;
-  }
+  sandboxMounts[vmId] = { name: req.file.originalname || 'disk.zip', totals: zipTotals(zipPath), startedAt: Date.now(), bytes: 0 };
+  vmLog(vmId, 'sys', `Extracting ${sandboxMounts[vmId].name}…`);
 
-  exec(extractCmd, (err, stdout, stderr) => {
+  extractZip(zipPath, vmDisk, err => {
+    delete sandboxMounts[vmId];
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath); 
-    
     if (err) {
-      console.error("Extraction error:", err.message || stderr);
-      return res.status(500).json({ 
-        success: false, 
-        error: "Failed to extract zip file. Check backend console for details." 
-      });
+      console.error("Extraction error:", err.message);
+      vmLog(vmId, 'sys', `Couldn't extract the disk: ${err.message}`);
+      return res.status(500).json({ success: false, error: "Failed to extract zip file. Check the console for details." });
     }
-    
+    vmLog(vmId, 'sys', `Mounted ${req.file.originalname || 'a new disk'}.`);
+    if (!findServerJs(vmDisk)) {
+      return res.json({ success: true, warning: "The disk was mounted, but no server.js was found in it, so it won't boot." });
+    }
     res.json({ success: true, message: "VM Disk ready." });
   });
 });
 
-app.post("/api/sandbox/start", (req, res) => {
+app.post("/api/sandbox/start", async (req, res) => {
   const vmId = req.body.vmId;
   if (!isValidVmId(vmId)) return res.status(400).json({ success: false, error: "Invalid VM ID." });
-
   if (activeVMs[vmId]) return res.json({ success: true, running: true, port: activeVMs[vmId].port });
-  
-  const vmDisk = path.join(sandboxBaseDir, vmId, "disk");
-  const targetServerJs = findServerJs(vmDisk);
-  
-  if (!targetServerJs) {
-    return res.status(404).json({ success: false, error: "No system kernel (server.js) found in this virtual disk." });
+  try {
+    const vm = await startVm(vmId, normalizeVmConfig(req.body.config));
+    res.json({ success: true, running: true, port: vm.port });
+  } catch (err) {
+    vmLog(vmId, 'sys', err.message);
+    res.status(400).json({ success: false, error: err.message });
   }
-
-  const vmCwd = path.dirname(targetServerJs);
-  const wrapperPath = path.join(vmCwd, 'sandbox-wrapper.js');
-  const assignPort = currentSandboxPort++; 
-
-  const wrapperCode = `
-    const http = require('http');
-    const originalListen = http.Server.prototype.listen;
-    http.Server.prototype.listen = function(...args) {
-      if (typeof args[0] === 'number') {
-        args[0] = ${assignPort};
-      } else if (typeof args[0] === 'object' && args[0] !== null && args[0].port) {
-        args[0].port = ${assignPort};
-      }
-      return originalListen.apply(this, args);
-    };
-    require('./server.js');
-  `;
-  
-  fs.writeFileSync(wrapperPath, wrapperCode);
-
-  const p = spawn('node', ['sandbox-wrapper.js'], { 
-     cwd: vmCwd,
-     env: { ...process.env, PORT: assignPort }
-  });
-  
-  activeVMs[vmId] = { process: p, port: assignPort };
-
-  p.on('exit', () => { delete activeVMs[vmId]; });
-  
-  setTimeout(() => res.json({ success: true, running: true, port: assignPort }), 1000);
 });
 
-app.post("/api/sandbox/stop", (req, res) => {
+app.post("/api/sandbox/restart", async (req, res) => {
   const vmId = req.body.vmId;
-  if (vmId && activeVMs[vmId]) {
-    activeVMs[vmId].process.kill();
-    delete activeVMs[vmId];
+  if (!isValidVmId(vmId)) return res.status(400).json({ success: false, error: "Invalid VM ID." });
+  const config = req.body.config ? normalizeVmConfig(req.body.config) : (activeVMs[vmId]?.config || normalizeVmConfig({}));
+  // Catch a port that can never work before taking the running guest down.
+  if (config.port && (SANDBOX_RESERVED_PORTS.has(config.port) || portTakenByVm(config.port, vmId))) {
+    return res.status(400).json({ success: false, error: `Port ${config.port} is already used by mariowOS or another sandbox.` });
   }
+  await stopVm(vmId);
+  try {
+    const vm = await startVm(vmId, config);
+    res.json({ success: true, running: true, port: vm.port });
+  } catch (err) {
+    vmLog(vmId, 'sys', err.message);
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/api/sandbox/stop", async (req, res) => {
+  const vmId = req.body.vmId;
+  if (isValidVmId(vmId)) await stopVm(vmId);
   res.json({ success: true, running: false });
 });
 
-app.post("/api/sandbox/delete", (req, res) => {
+app.post("/api/sandbox/delete", async (req, res) => {
   const vmId = req.body.vmId;
   if (!isValidVmId(vmId)) return res.status(400).json({ success: false, error: "Invalid VM ID." });
 
-  if (activeVMs[vmId]) {
-    activeVMs[vmId].process.kill();
-    delete activeVMs[vmId];
-  }
+  await stopVm(vmId);
+  delete vmLogs[vmId];
+  delete vmExits[vmId];
 
   const vmFolder = path.join(sandboxBaseDir, vmId);
   if (fs.existsSync(vmFolder)) {
@@ -2619,9 +3060,112 @@ app.post("/api/sandbox/delete", (req, res) => {
 app.get("/api/sandbox/status", (req, res) => {
   const statusMap = {};
   Object.keys(activeVMs).forEach(id => {
-    statusMap[id] = { running: true, port: activeVMs[id].port };
+    const vm = activeVMs[id];
+    statusMap[id] = { running: true, port: vm.port, startedAt: vm.startedAt, memoryMB: vm.config.memoryMB, pid: vm.process.pid };
   });
-  res.json({ active: statusMap });
+  res.json({ active: statusMap, exits: vmExits });
+});
+
+app.get("/api/sandbox/logs", (req, res) => {
+  const vmId = req.query.vmId;
+  if (!isValidVmId(vmId)) return res.status(400).json({ success: false, error: "Invalid VM ID." });
+  const after = Number(req.query.after) || 0;
+  const log = vmLogs[vmId] || { seq: 0, lines: [] };
+  res.json({ success: true, seq: log.seq, lines: log.lines.filter(l => l.n > after) });
+});
+
+app.post("/api/sandbox/logs/clear", (req, res) => {
+  const vmId = req.body.vmId;
+  if (!isValidVmId(vmId)) return res.status(400).json({ success: false, error: "Invalid VM ID." });
+  if (vmLogs[vmId]) vmLogs[vmId].lines = [];
+  res.json({ success: true });
+});
+
+async function listSnapshots(vmId) {
+  const dir = vmSnapshotsDir(vmId);
+  if (!fs.existsSync(dir)) return [];
+  const out = [];
+  for (const id of fs.readdirSync(dir)) {
+    if (!isValidVmId(id)) continue;
+    let meta = {};
+    try { meta = JSON.parse(fs.readFileSync(path.join(dir, id, 'meta.json'), 'utf8')); } catch (e) {}
+    out.push({ id, name: meta.name || id, createdAt: meta.createdAt || 0, bytes: meta.bytes || 0 });
+  }
+  return out.sort((a, b) => b.createdAt - a.createdAt);
+}
+
+app.get("/api/sandbox/info", async (req, res) => {
+  const vmId = req.query.vmId;
+  if (!isValidVmId(vmId)) return res.status(400).json({ success: false, error: "Invalid VM ID." });
+  const disk = vmDiskDir(vmId);
+  const hasDisk = fs.existsSync(disk);
+  res.json({
+    success: true,
+    hasDisk,
+    kernelFound: hasDisk && !!findServerJs(disk),
+    diskBytes: hasDisk ? await dirSize(disk) : 0,
+    snapshots: await listSnapshots(vmId)
+  });
+});
+
+app.post("/api/sandbox/snapshot", async (req, res) => {
+  const vmId = req.body.vmId;
+  if (!isValidVmId(vmId)) return res.status(400).json({ success: false, error: "Invalid VM ID." });
+  const disk = vmDiskDir(vmId);
+  if (!fs.existsSync(disk)) return res.status(404).json({ success: false, error: "This sandbox has no disk to snapshot." });
+  const id = `snap_${Date.now()}`;
+  const target = path.join(vmSnapshotsDir(vmId), id);
+  try {
+    await fs.promises.cp(disk, path.join(target, 'disk'), { recursive: true });
+    const name = String(req.body.name || '').trim().slice(0, 80) || new Date().toLocaleString();
+    const meta = { name, createdAt: Date.now(), bytes: await dirSize(path.join(target, 'disk')) };
+    fs.writeFileSync(path.join(target, 'meta.json'), JSON.stringify(meta));
+    vmLog(vmId, 'sys', `Snapshot "${name}" taken.`);
+    res.json({ success: true, snapshot: { id, ...meta } });
+  } catch (err) {
+    fs.rmSync(target, { recursive: true, force: true });
+    res.status(500).json({ success: false, error: `Couldn't take the snapshot: ${err.message}` });
+  }
+});
+
+app.post("/api/sandbox/snapshot/restore", async (req, res) => {
+  const { vmId, snapshotId } = req.body;
+  if (!isValidVmId(vmId) || !isValidVmId(snapshotId)) return res.status(400).json({ success: false, error: "Invalid ID." });
+  if (activeVMs[vmId]) return res.status(409).json({ success: false, error: "Shut down the sandbox before restoring a snapshot." });
+  const source = path.join(vmSnapshotsDir(vmId), snapshotId, 'disk');
+  if (!fs.existsSync(source)) return res.status(404).json({ success: false, error: "That snapshot doesn't exist anymore." });
+  const disk = vmDiskDir(vmId);
+  try {
+    fs.rmSync(disk, { recursive: true, force: true });
+    await fs.promises.cp(source, disk, { recursive: true });
+    vmLog(vmId, 'sys', 'Disk restored from a snapshot.');
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: `Couldn't restore the snapshot: ${err.message}` });
+  }
+});
+
+app.post("/api/sandbox/snapshot/delete", (req, res) => {
+  const { vmId, snapshotId } = req.body;
+  if (!isValidVmId(vmId) || !isValidVmId(snapshotId)) return res.status(400).json({ success: false, error: "Invalid ID." });
+  fs.rmSync(path.join(vmSnapshotsDir(vmId), snapshotId), { recursive: true, force: true });
+  res.json({ success: true });
+});
+
+app.get("/api/sandbox/export", (req, res) => {
+  const vmId = req.query.vmId;
+  if (!isValidVmId(vmId)) return res.status(400).json({ success: false, error: "Invalid VM ID." });
+  const disk = vmDiskDir(vmId);
+  if (!fs.existsSync(disk)) return res.status(404).json({ success: false, error: "This sandbox has no disk." });
+  const zipPath = path.join(os.tmpdir(), `mariowos-sandbox-${vmId}-${Date.now()}.zip`);
+  const cmd = process.platform === 'win32'
+    ? `powershell.exe -nologo -noprofile -command "Compress-Archive -Path ${psQuote(path.join(disk, '*'))} -DestinationPath ${psQuote(zipPath)} -Force"`
+    : `cd "${disk}" && zip -r -q "${zipPath}" .`;
+  exec(cmd, { maxBuffer: 16 * 1024 * 1024 }, err => {
+    if (err || !fs.existsSync(zipPath)) return res.status(500).json({ success: false, error: "Couldn't export the disk." });
+    const name = String(req.query.name || vmId).replace(/[^\w .-]/g, '').trim() || vmId;
+    res.download(zipPath, `${name}.zip`, () => fs.rm(zipPath, { force: true }, () => {}));
+  });
 });
 
 // --- SYSTEM & OTA UPDATES ---
@@ -3076,7 +3620,7 @@ app.get('/api/system/check-update', async (req, res) => {
     const channelSwitched = installedChannel !== channel && remote.version !== local;
     res.json(
       (isNewerVersion(remote.version, local) || channelSwitched)
-        ? { updateAvailable: true, current: local, latest: remote.version, changelog: remote.changelog, channelSwitch: channelSwitched }
+        ? { updateAvailable: true, current: local, latest: remote.version, changelog: remote.changelog, channelSwitch: channelSwitched, staged: readStagedUpdate()?.version === remote.version }
         : { updateAvailable: false, current: local, latest: remote.version }
     );
   } catch (error) { 
@@ -3165,6 +3709,177 @@ app.get('/api/system/ota-update', (req, res) => {
     }
   })();
 });
+
+
+// --- System updates, the macOS way: download now, install on the next restart ---
+// "Update Now" in Settings downloads and checks the release in the background; nothing on
+// the system changes yet. "Restart Now" hands over to the launcher: the kernel exits with
+// INSTALL_UPDATE, the launcher shows the boot screen with a progress bar and starts the
+// kernel again in install mode (MARIOWOS_APPLY_STAGED), which applies the downloaded files,
+// reports its progress on its output ("@@install {...}") and exits, so the launcher can
+// show "Rebooting…" and start the new version. Every check the old one-step updater made
+// still runs, at download and again right before installing.
+const STAGED_UPDATE_DIR = path.join(os.tmpdir(), `mariowos-staged-${crypto.createHash("sha1").update(__dirname).digest("hex").slice(0, 10)}`);
+const STAGED_UPDATE_INFO = STAGED_UPDATE_DIR + ".json";
+function readStagedUpdate() {
+  try {
+    const info = JSON.parse(fs.readFileSync(STAGED_UPDATE_INFO, "utf8"));
+    return info && info.version && fs.existsSync(path.join(STAGED_UPDATE_DIR, ".git")) ? info : null;
+  } catch (e) { return null; }
+}
+function discardStagedUpdate() {
+  fs.rmSync(STAGED_UPDATE_INFO, { force: true });
+  fs.rmSync(STAGED_UPDATE_DIR, { recursive: true, force: true });
+}
+
+// git clone with its own progress (receiving the objects, then resolving the deltas), as 0-100.
+function cloneWithProgress(url, dest, onPercent) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", ["clone", "--progress", "--depth", "1", "--branch", "main", url, dest], { cwd: os.tmpdir(), windowsHide: true });
+    let stderr = "";
+    child.stderr.on("data", chunk => {
+      const text = chunk.toString();
+      stderr = (stderr + text).slice(-4000);
+      const steps = [...text.matchAll(/(Receiving objects|Resolving deltas):\s+(\d+)%/g)];
+      const last = steps[steps.length - 1];
+      if (last) onPercent(last[1] === "Receiving objects" ? Number(last[2]) * 0.85 : 85 + Number(last[2]) * 0.15);
+    });
+    child.on("error", reject);
+    child.on("close", code => code === 0 ? resolve()
+      : reject(new Error(stderr.trim().split("\n").pop() || `git exited with code ${code}`)));
+  });
+}
+
+// What a downloaded release must pass before it may touch the system.
+async function verifyStagedRelease(stagePath, say = () => {}) {
+  const files = await getStagedUpdateFiles(stagePath);
+  if (files.length === 0) throw new Error("The update contains no files");
+  // A-07: with a public key installed, only a release signed by the maintainer is applied.
+  const publicKey = getUpdatePublicKey();
+  if (publicKey) {
+    say("Verifying the release signature...");
+    const auth = verifyReleaseSignature(stagePath, files, publicKey);
+    if (!auth.ok) throw new Error("Update rejected: " + auth.reason);
+  } else {
+    console.warn("[update] No update-pubkey.pem configured: this update is NOT signature-verified.");
+  }
+  const serverUpdate = files.find(file => file.relativePath === "server.js");
+  if (serverUpdate) await validateStagedServer(serverUpdate.stagedFile);
+  validateStagedRuntime(stagePath, files, __dirname);
+  return { files, serverUpdate };
+}
+
+app.get("/api/system/ota-download", (req, res) => {
+  if (systemUpdateInProgress) return res.status(409).json({ success: false, error: "updater is busy" });
+  systemUpdateInProgress = true;
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  const send = (percent, status, finished = false, extra = {}) => {
+    try { res.write(`data: ${JSON.stringify({ percent, status, finished, ...extra })}\n\n`); } catch (e) {}
+  };
+  (async () => {
+    try {
+      const channel = getUpdateChannel();
+      discardStagedUpdate();
+      send(0, "Downloading...");
+      let shown = -1;
+      await cloneWithProgress(`https://github.com/mariowOS/${channel}.git`, STAGED_UPDATE_DIR, percent => {
+        const value = Math.round(percent * 0.9);
+        if (value !== shown) { shown = value; send(value, "Downloading..."); }
+      });
+      send(92, "Checking the download...");
+      const { files } = await verifyStagedRelease(STAGED_UPDATE_DIR, status => send(95, status));
+      const version = readStagedVersion(STAGED_UPDATE_DIR);
+      fs.writeFileSync(STAGED_UPDATE_INFO, JSON.stringify({ version, channel, files: files.length, downloadedAt: Date.now() }));
+      send(100, "Ready to install", true, { ready: true, version });
+    } catch (error) {
+      try { discardStagedUpdate(); } catch (cleanupError) { console.error("Could not clean the downloaded update:", cleanupError); }
+      console.error("System update download failed:", error);
+      send(0, `Download failed: ${error.message}`, true);
+    } finally {
+      systemUpdateInProgress = false;
+      res.end();
+    }
+  })();
+});
+
+app.get("/api/system/staged-update", (req, res) => {
+  const staged = readStagedUpdate();
+  res.set("Cache-Control", "no-store");
+  res.json({ ready: !!staged, version: staged ? staged.version : null });
+});
+
+app.post("/api/system/install-staged-update", async (req, res) => {
+  if (!readStagedUpdate()) return res.status(409).json({ success: false, error: "No downloaded update is waiting to be installed" });
+  if (systemUpdateInProgress) return res.status(409).json({ success: false, error: "updater is busy" });
+  if (process.env.MARIOWOS_MANAGED_BACKEND === "1") {
+    res.status(202).json({ success: true, restarting: true });
+    setTimeout(() => exitAfterServerClose(SERVER_EXIT_CODES.INSTALL_UPDATE), 100);
+    return;
+  }
+  // Without the launcher there is no install screen: it installs right away, as before.
+  systemUpdateInProgress = true;
+  try {
+    const result = await installStagedUpdate(() => {});
+    res.json({ success: true, restarting: result.serverReplaced });
+    if (result.serverReplaced) setTimeout(() => process.exit(SERVER_EXIT_CODES.UPDATE_RESTART), 300);
+    else systemUpdateInProgress = false;
+  } catch (error) {
+    systemUpdateInProgress = false;
+    console.error("Installing the update failed:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Applies the downloaded release. report(percent, status) follows along.
+async function installStagedUpdate(report) {
+  const info = readStagedUpdate();
+  if (!info) throw new Error("No downloaded update is waiting to be installed");
+  report(3, "Checking the update...");
+  const { files, serverUpdate } = await verifyStagedRelease(STAGED_UPDATE_DIR);
+  // Keep the files this update replaces: if the new kernel keeps crashing, the
+  // launcher puts them back (lib/rollback.js) instead of leaving a boot loop.
+  report(8, "Saving a restore point...");
+  createRollbackPoint(__dirname, files, {
+    toVersion: info.version,
+    isProtected: isUpdateProtectedFile,
+    isUnchanged: (contents, file) => matchesGitBlob(contents, file.blobHash)
+  });
+  const transaction = applyStagedFiles(files, (percent, status) => report(percent, status), 10, 96);
+  try {
+    if (serverUpdate) await launchServerReplacement(STAGED_UPDATE_DIR, serverUpdate.mode);
+    transaction.commit();
+  } catch (error) {
+    transaction.rollback();
+    throw error;
+  }
+  config.installedChannel = info.channel || getUpdateChannel();
+  saveConfig();
+  fs.rmSync(STAGED_UPDATE_INFO, { force: true });
+  // The server's own replacement helper removes the download once it has swapped server.js.
+  if (!serverUpdate) fs.rmSync(STAGED_UPDATE_DIR, { recursive: true, force: true });
+  report(100, "Installed");
+  return { serverReplaced: !!serverUpdate, version: info.version };
+}
+
+// Install mode: no HTTP server; install, report, and hand back to the launcher.
+function runStagedInstall() {
+  const say = state => console.log("@@install " + JSON.stringify(state));
+  const version = readStagedUpdate()?.version || null;
+  say({ percent: 0, status: "Installing", version });
+  installStagedUpdate((percent, status) => say({ percent, status, version }))
+    .then(result => {
+      say({ percent: 100, done: true, version });
+      setTimeout(() => process.exit(result.serverReplaced ? SERVER_EXIT_CODES.UPDATE_RESTART : SERVER_EXIT_CODES.KERNEL_REBOOT), 300);
+    })
+    .catch(error => {
+      console.error("Installing the update failed:", error);
+      try { discardStagedUpdate(); } catch (cleanupError) { console.error("Could not clean the downloaded update:", cleanupError); }
+      say({ error: error.message, version });
+      setTimeout(() => process.exit(SERVER_EXIT_CODES.KERNEL_REBOOT), 300);
+    });
+}
 
 app.get("/api/system/check-sota-update", async (req, res) => {
   try {
@@ -3439,6 +4154,44 @@ app.post("/api/remote/exec", (req, res) => {
       });
     });
   });
+});
+
+// --- ACODE PREVIEWS ---
+// A project in the signed-in user's ~/ACode served as a real web page, so its relative
+// links, images and scripts work and errors name the right file and line. Read-only,
+// limited to ~/ACode, and under the same CSP as every other page. HTML pages get the
+// error reporter (desktop/assets/acode-preview-reporter.js) added right after <head>, on
+// the same line, so line numbers in error messages still match the file.
+const ACODE_REPORTER_TAG = '<script src="/desktop/assets/acode-preview-reporter.js"></script>';
+app.use("/acode-preview", (req, res, next) => {
+  if (req.method !== "GET" && req.method !== "HEAD") return next();
+  let relative;
+  try { relative = decodeURIComponent(req.path); } catch (e) { return res.status(400).send("Bad path"); }
+  const virtualPath = path.posix.normalize(path.posix.join("/home/ACode", relative));
+  if (!virtualPath.startsWith("/home/ACode/")) return res.status(403).send("Only ACode projects can be previewed");
+  const resolved = resolveVirtualPath(virtualPath);
+  if (!resolved || resolved.isReadOnly || !resolved.realPath) return res.status(403).send("Access denied");
+  let file = resolved.realPath;
+  try {
+    if (fs.statSync(file).isDirectory()) {
+      // A project folder opens its index.html; the trailing slash keeps relative links right.
+      if (!req.path.endsWith("/")) return res.redirect(`${req.baseUrl}${req.path}/${req.url.includes("?") ? req.url.slice(req.url.indexOf("?")) : ""}`);
+      file = path.join(file, "index.html");
+    }
+    if (!fs.statSync(file).isFile()) throw new Error("not a file");
+  } catch (e) {
+    return res.status(404).type("text").send(`ACode preview: ${virtualPath.slice("/home/ACode/".length)} is not in this project`);
+  }
+  res.setHeader("Cache-Control", "no-store");
+  if (/\.html?$/i.test(file)) {
+    let html = fs.readFileSync(file, "utf8");
+    const head = html.match(/<head\b[^>]*>/i);
+    const doctype = html.match(/^\s*<!doctype[^>]*>/i);
+    const at = head ? head.index + head[0].length : doctype ? doctype[0].length : 0;
+    html = html.slice(0, at) + ACODE_REPORTER_TAG + html.slice(at);
+    return res.type("html").send(html);
+  }
+  res.sendFile(file, { dotfiles: "allow" });
 });
 
 // "/device" is the window onto the machine mariowOS is running on. Everything below
@@ -3933,7 +4686,9 @@ function pruneLogs() {
 pruneLogs();
 cron.schedule("0 3 * * *", pruneLogs);
 
-httpServer = app.listen(PORT, BIND_HOST, () => console.log(`kernel booted on [${currentOS}] at http://${BIND_HOST}:${PORT}`));
+// Install mode (see "System updates, the macOS way") never serves anything.
+const INSTALLING_UPDATE = process.env.MARIOWOS_APPLY_STAGED === "1";
+httpServer = INSTALLING_UPDATE ? null : app.listen(PORT, BIND_HOST, () => console.log(`kernel booted on [${currentOS}] at http://${BIND_HOST}:${PORT}`));
 
 // Third-party Store apps (see THIRD-PARTY APP ISOLATION): static files only, on their
 // own origin. Nothing here can reach the shell's API, cookies or storage.
@@ -3967,9 +4722,10 @@ for (const shared of ["fonts", "icons"]) {
   appsApp.use(`/desktop/assets/${shared}`, express.static(path.join(__dirname, "desktop", "assets", shared), { fallthrough: false }));
 }
 appsApp.use((req, res) => res.status(404).end());
-const appsServer = appsApp.listen(APPS_PORT, BIND_HOST);
-appsServer.on("error", error => console.error("[apps] isolated app server could not start:", error.message));
-httpServer.on('error', error => {
+const appsServer = INSTALLING_UPDATE ? null : appsApp.listen(APPS_PORT, BIND_HOST);
+appsServer?.on("error", error => console.error("[apps] isolated app server could not start:", error.message));
+if (INSTALLING_UPDATE) runStagedInstall();
+httpServer?.on('error', error => {
   console.error('kernel failed to bind its HTTP server:', error);
   process.exit(1);
 });

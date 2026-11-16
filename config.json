@@ -1,12 +1,79 @@
 {
-  "passwordHash": null,
-  "rules": [],
-  "rulesEnabled": true,
+  "passwordHash": "$2b$10$.VPvTjl8D3VasymDQHIpTuusvCqFfuB..q0vzISDKIbJuHymmxCMe",
+  "updateChannel": "insiders",
   "quickSettings": {
     "wifi": true,
     "bluetooth": true,
     "dnd": false,
-    "powerMode": "Balanced",
+    "powerMode": "Performance",
+    "connectedWifi": "Galilei",
+    "connectedBt": null,
     "isEthernet": false
+  },
+  "rules": [],
+  "rulesEnabled": true,
+  "calendarEvents": [],
+  "users": [],
+  "username": "mariow",
+  "installedApps": [
+    {
+      "appId": "tiles",
+      "title": "Tiles Window Manager",
+      "icon": "🪅",
+      "url": "com.mariowos.twm.html",
+      "repoUrl": "https://github.com/mariowOS/store-catalog/raw/refs/heads/main/desktops/twm/com.mariowos.twm.html",
+      "version": null
+    },
+    {
+      "appId": "sandbox",
+      "title": "Sandbox",
+      "icon": "📦",
+      "url": "apps/sandbox/index.html",
+      "repoUrl": "https://github.com/mariowOS/sandbox.git",
+      "version": null
+    },
+    {
+      "appId": "acode",
+      "title": "ACode",
+      "icon": "/desktop/assets/icon_acode_1794142367463.png",
+      "url": "apps/acode/index.html",
+      "repoUrl": "https://github.com/mariowOS/acode.git",
+      "version": null
+    },
+    {
+      "appId": "weather",
+      "title": "Weather",
+      "icon": "/desktop/assets/icon_weather_1794345271831.png",
+      "url": "apps/weather/index.html",
+      "repoUrl": "https://github.com/mariowstech/weather.git",
+      "version": null
+    }
+  ],
+  "verified": true,
+  "sendReports": false,
+  "email": "mariowisuseless@gmail.com",
+  "mailToken": "RZJWm5e7GT5EQOl7ddGIbeBFJYkKSgJST3affpG6eR8",
+  "performance": false,
+  "developer": true,
+  "desktopStyle": {
+    "accent": "#0a84ff",
+    "wallpaperColor": "#1c2333",
+    "wallpaperMode": "image",
+    "gradient": "aurora",
+    "fit": "cover",
+    "uiFont": "Poppins",
+    "brightness": 100,
+    "saturation": 100,
+    "blur": 0,
+    "radius": 16,
+    "glass": 75,
+    "iconScale": 100,
+    "nightWarmth": 35,
+    "nightSchedule": "off",
+    "nightFrom": "21:00",
+    "nightTo": "07:00",
+    "dockMagnify": false,
+    "tiling": false,
+    "tilingGap": 10
   }
 }

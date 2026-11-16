@@ -18,7 +18,7 @@ if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
 }
 const HEALTH_PATH = '/api/system/health';
 const SHELL_URL = `http://127.0.0.1:${PORT}/`;
-const EXIT_CODES = Object.freeze({ SHUTDOWN: 20, UPDATE_RESTART: 21, KERNEL_REBOOT: 22 });
+const EXIT_CODES = Object.freeze({ SHUTDOWN: 20, UPDATE_RESTART: 21, KERNEL_REBOOT: 22, INSTALL_UPDATE: 23 });
 const bootPage = path.join(__dirname, 'boot.html');
 const kernelRecoveryPage = path.join(__dirname, 'kernel-recovery.html');
 const rollback = require('./lib/rollback');
@@ -38,6 +38,8 @@ let backendRestartAttempt = 0;
 let backendReady = false;
 let shuttingDown = false;
 let mainWindow = null;
+// Set when the kernel asks to install a downloaded update: the next kernel starts in install mode.
+let installingUpdate = false;
 
 function isVerboseBootEnabled() {
     if (!fs.existsSync(bootModeFile)) return false;
@@ -286,6 +288,26 @@ ipcMain.handle('mariowos:recovery-quit', (event) => {
     return { ok: true };
 });
 
+// The install screen: boot.html in update mode, following the installer's progress
+// (the kernel prints it as "@@install {...}" lines).
+let installState = null;
+function showUpdateScreen() {
+    installState = null;
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.loadFile(bootPage, { query: { update: '1' } }).catch(error => {
+        console.error('[sniffer]: could not show the update screen:', error);
+    });
+}
+function sendInstallState(state) {
+    installState = { ...(installState || {}), ...state };
+    pushInstallState();
+}
+function pushInstallState() {
+    if (!installState || !mainWindow || mainWindow.isDestroyed()) return;
+    if (!mainWindow.webContents.getURL().includes('update=1')) return;
+    mainWindow.webContents.executeJavaScript(`window.mariowOSInstall && window.mariowOSInstall(${JSON.stringify(installState)})`).catch(() => {});
+}
+
 function showBootScreen() {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     mainWindow.loadFile(bootPage, { query: getBootQuery() }).catch(error => {
@@ -388,6 +410,8 @@ function startBackend() {
             return;
         }
     }
+    const installNext = installingUpdate;
+    installingUpdate = false;
     const instanceId = crypto.randomBytes(16).toString('hex');
     const updateMarker = path.join(os.tmpdir(), `mariowos-update-${process.pid}-${instanceId}.json`);
     const child = spawn(process.env.MARIOWOS_NODE_EXECUTABLE || 'node', ['server.js'], {
@@ -398,7 +422,8 @@ function startBackend() {
             MARIOWOS_MANAGED_BACKEND: '1',
             MARIOWOS_BACKEND_INSTANCE_ID: instanceId,
             MARIOWOS_SHUTDOWN_TOKEN: shutdownToken,
-            MARIOWOS_UPDATE_MARKER: updateMarker
+            MARIOWOS_UPDATE_MARKER: updateMarker,
+            ...(installNext ? { MARIOWOS_APPLY_STAGED: '1' } : {})
         },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true
@@ -406,8 +431,17 @@ function startBackend() {
     backendProcess = child;
     backendReady = false;
     child.updateMarker = updateMarker;
+    child.installing = installNext;
 
-    child.stdout.on('data', data => console.log(`[kernel]: ${data.toString().trim()}`));
+    child.stdout.on('data', data => {
+        for (const line of data.toString().split(/\r?\n/)) {
+            if (line.startsWith('@@install ')) {
+                try { sendInstallState(JSON.parse(line.slice(10))); } catch {}
+                continue;
+            }
+            if (line.trim()) console.log(`[kernel]: ${line.trim()}`);
+        }
+    });
     child.stderr.on('data', data => {
         const text = data.toString().trim();
         console.error(`[kernel]: ${text}`);
@@ -419,6 +453,39 @@ function startBackend() {
         backendReady = false;
         if (shuttingDown) {
             fs.rmSync(updateMarker, { force: true });
+            return;
+        }
+
+        // An update was being installed: "Rebooting…", then the new version starts.
+        if (child.installing) {
+            const failed = code !== EXIT_CODES.KERNEL_REBOOT && code !== EXIT_CODES.UPDATE_RESTART;
+            if (failed && !installState?.error) sendInstallState({ error: 'The installer stopped unexpectedly.' });
+            sendInstallState({ rebooting: true });
+            console.log(installState?.error ? `[sniffer]: the update was not installed: ${installState.error}` : '[sniffer]: update installed; rebooting.');
+            backendRestartAttempt = 0;
+            setTimeout(() => {
+                if (shuttingDown || backendProcess) return;
+                if (code === EXIT_CODES.UPDATE_RESTART) {
+                    void restartAfterUpdate(updateMarker).catch(error => {
+                        console.error('[sniffer]: could not complete kernel restart:', error);
+                        fs.rmSync(updateMarker, { force: true });
+                        startBackend();
+                    });
+                } else {
+                    fs.rmSync(updateMarker, { force: true });
+                    startBackend();
+                }
+            }, 1800);
+            return;
+        }
+
+        if (code === EXIT_CODES.INSTALL_UPDATE) {
+            console.log('[sniffer]: installing the downloaded update...');
+            fs.rmSync(updateMarker, { force: true });
+            backendRestartAttempt = 0;
+            installingUpdate = true;
+            showUpdateScreen();
+            setTimeout(() => { if (!shuttingDown && !backendProcess) startBackend(); }, 700);
             return;
         }
 
@@ -481,7 +548,7 @@ function startBackend() {
         scheduleBackendRestart();
     });
 
-    void waitForBackendHealth(child, instanceId).then(() => {
+    if (!child.installing) void waitForBackendHealth(child, instanceId).then(() => {
         if (!isLiveChild(child) || shuttingDown) return;
         backendReady = true;
         backendRestartAttempt = 0;
@@ -606,6 +673,7 @@ function bootMariowOS() {
     });
     mainWindow.webContents.on('before-input-event', switcherInput);
     mainWindow.webContents.on('context-menu', event => event.preventDefault());
+    mainWindow.webContents.on('did-finish-load', pushInstallState);
     blockMouseHistoryNavigation(mainWindow);
     // The shell must never navigate "back" (boot -> login -> desktop): Chromium can still
     // route the mouse back button from a browser tab to the shell, so the shell keeps no history.

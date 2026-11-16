@@ -549,7 +549,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       try { result = await api("/api/store/sideload", { appId, title, icon: opts.i || "", path: plan.localPath }); }
       finally { stop(); }
       printLine(tab, `✔ ${mariowOSI18n.t("terminal.get.installed", "{pkg} installed successfully.", { pkg: appId })}`, "color-green");
-      if (IS_EMBEDDED && !already) window.parent.postMessage({ type: "app-installed-live", app: { appId, title: result.app.title, icon: result.app.icon, url: result.app.url } }, window.location.origin);
+      if (IS_EMBEDDED && !already) DESKTOP.postMessage({ type: "app-installed-live", app: { appId, title: result.app.title, icon: result.app.icon, url: result.app.url } }, window.location.origin);
     } else {
       await executeInstall({ id: appId, title, icon: opts.i || "📦", repoUrl: plan.repoUrl }, tab);
     }
@@ -633,7 +633,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
   function desktopWindows() {
     if (!IS_EMBEDDED) return [];
     let doc;
-    try { doc = window.parent.document; } catch (error) { return []; }
+    try { doc = DESKTOP.document; } catch (error) { return []; }
     return [...doc.querySelectorAll(".popup.active")].map(popup => {
       const label = popup.querySelector(".popup-header > span");
       const view = popup.ownerDocument.defaultView;
@@ -1343,7 +1343,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           const lower = target.toLowerCase();
           const found = /^\d+$/.test(target) ? windows[+target - 1] : windows.find(w => w.id.toLowerCase() === lower || w.title.toLowerCase() === lower);
           if (!found) { printError(tab, `kill: ${target}: ${mariowOSI18n.t("terminal.kill.none", "no such window (see 'ps')")}`); status = 1; continue; }
-          window.parent.postMessage({ type: "close-app", appId: found.id }, window.location.origin);
+          DESKTOP.postMessage({ type: "close-app", appId: found.id }, window.location.origin);
         }
         return status;
       } },
@@ -1351,7 +1351,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       run: (tab, args) => {
         if (args.length < 2) throw usageError("notify");
         if (!IS_EMBEDDED) throw new Error(mariowOSI18n.t("terminal.open.desktop-only", "apps can only be opened from the mariowOS desktop"));
-        window.parent.postMessage({ type: "show-notification", title: args[1], msg: args.slice(2).join(" "), icon: "🖥️" }, window.location.origin);
+        DESKTOP.postMessage({ type: "show-notification", title: args[1], msg: args.slice(2).join(" "), icon: "🖥️" }, window.location.origin);
       } }
   };
   Object.assign(COMMANDS, NEW_COMMANDS);
@@ -1473,6 +1473,232 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     } else hit = false;
     return command.negate ? !hit : hit;
   }
+
+  // ------------------------------------------------------------------- acode
+  // ACode's pipeline (desktop/apps/acode/pipeline.js) does the work, so `acode build` here
+  // and the Build button in ACode give the same result. It is only loaded from a copy of
+  // ACode that runs on the system's origin (an isolated copy is not served here at all).
+  const ACODE_SUBCOMMANDS = {
+    open: ["open [project]", mariowOSI18n.t("terminal.acode.cmd.open", "Open ACode (on a project, if you name one)")],
+    new: ["new <name> [-t blank|app|system]", mariowOSI18n.t("terminal.acode.cmd.new", "Create a project in ~/ACode from a template")],
+    list: ["list", mariowOSI18n.t("terminal.acode.cmd.list", "List your projects")],
+    check: ["check [project]", mariowOSI18n.t("terminal.acode.cmd.check", "Look for errors in every file of a project")],
+    build: ["build [project]", mariowOSI18n.t("terminal.acode.cmd.build", "Check the project, then pack it into ~/ACode/dist/<project>.zip")],
+    run: ["run [project] [-d]", mariowOSI18n.t("terminal.acode.cmd.run", "Open the app in a preview window and show its errors live (-d: don't wait)")],
+    install: ["install [project]", mariowOSI18n.t("terminal.acode.cmd.install", "Install the project as an app on this system (requires password)")],
+    help: ["help", mariowOSI18n.t("terminal.acode.cmd.help", "Show this help")]
+  };
+  let acodePipeline = null;
+  async function loadACode() {
+    if (window.ACodePipeline) return window.ACodePipeline;
+    const installed = await installedApps().catch(() => []);
+    const entry = installed.find(app => app.appId === "acode");
+    if (!entry) throw Object.assign(new Error(mariowOSI18n.t("terminal.acode.not-installed", "ACode is not installed. Install it with: get install acode")), { status: 127 });
+    if (entry.isolated) throw new Error(mariowOSI18n.t("terminal.acode.isolated", "this copy of ACode runs isolated, so the Terminal cannot use it"));
+    if (!acodePipeline) {
+      acodePipeline = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = `/desktop/apps/acode/pipeline.js?v=${Date.now()}`;
+        script.onload = () => window.ACodePipeline ? resolve(window.ACodePipeline) : reject(new Error("pipeline.js did not load"));
+        script.onerror = () => { acodePipeline = null; reject(new Error(mariowOSI18n.t("terminal.acode.old", "this ACode has no pipeline: update it with 'get upgrade'"))); };
+        document.head.appendChild(script);
+      });
+    }
+    return acodePipeline;
+  }
+
+  // The project: the one named, the one whose folder you are in, or ACode's current one.
+  function acodeProjectName(tab, arg) {
+    if (arg) {
+      if (arg === "." || arg === ".." || arg.includes("/") || arg.startsWith("~")) {
+        const match = normalizeVirtualPath(arg, tab.currentDirectory).match(/^\/home\/ACode\/([^/]+)/);
+        if (!match || match[1] === "dist") throw new Error(mariowOSI18n.t("terminal.acode.not-in-acode", "{path} is not a project folder in ~/ACode", { path: arg }));
+        return match[1];
+      }
+      return arg;
+    }
+    const here = tab.currentDirectory.match(/^\/home\/ACode\/([^/]+)/);
+    if (here && here[1] !== "dist") return here[1];
+    const current = tab.shell.getVar("ACODE_PROJECT");
+    if (current) return current;
+    throw new Error(mariowOSI18n.t("terminal.acode.which", "which project? Name it (acode build myapp) or cd into ~/ACode/<project>"));
+  }
+
+  // compiler-style lines: file:line:col  error  message  (source)
+  function printProblems(tab, problems, { quietInfo = false } = {}) {
+    const shown = quietInfo ? problems.filter(p => p.severity !== "info") : problems;
+    const color = { error: "color-red", warning: "color-yellow", info: "color-gray" };
+    if (isCapturing(tab)) { shown.forEach(p => printLine(tab, `${p.file}:${p.line}:${p.col}: ${p.severity}: ${p.message}`)); return; }
+    if (!shown.length) return;
+    printHTML(tab, shown.map(p =>
+      `<span class="color-blue">${escapeHtml(`${p.file}:${p.line}:${p.col}`)}</span>  <span class="${color[p.severity]}">${escapeHtml(p.severity.padEnd(7))}</span> ${escapeHtml(p.message)}${p.source ? ` <span class="color-gray">(${escapeHtml(p.source)})</span>` : ""}`
+    ).join("\n"));
+  }
+  function problemSummary(problems) {
+    const count = severity => problems.filter(p => p.severity === severity).length;
+    const errors = count("error"), warnings = count("warning");
+    return mariowOSI18n.t("terminal.acode.summary", "{errors} error(s), {warnings} warning(s)", { errors, warnings });
+  }
+
+  async function loadACodeProject(tab, P, name) {
+    try { return await P.loadProject(name); }
+    catch (error) {
+      if (/no project named/.test(error.message)) {
+        const names = (await P.listProjects()).map(p => p.name);
+        const suggestion = closestMatch(name, names);
+        throw new Error(suggestion ? mariowOSI18n.t("terminal.acode.no-project-suggest", "no project named '{name}'. Did you mean '{suggestion}'?", { name, suggestion }) : mariowOSI18n.t("terminal.acode.no-project", "no project named '{name}' (see 'acode list')", { name }));
+      }
+      throw error;
+    }
+  }
+
+  // acode run: open the preview, then print its errors as they happen, until the
+  // preview window closes or Ctrl+C (the preview stays open).
+  async function acodeRun(tab, P, project, detach) {
+    const problems = await P.check(project);
+    const errors = problems.filter(p => p.severity === "error");
+    if (errors.length) {
+      printProblems(tab, errors);
+      printLine(tab, mariowOSI18n.t("terminal.acode.run-anyway", "Running anyway: the app may not work as expected."), "color-yellow");
+    }
+    let channel = null;
+    const reports = [];
+    if (!detach) {
+      channel = new BroadcastChannel(P.CHANNEL);
+      channel.onmessage = event => reports.push(event.data);
+    }
+    P.openPreview(project.name);
+    printLine(tab, `▶ ${mariowOSI18n.t("terminal.acode.running", "{name} is running in a preview window.", { name: project.name })}`, "color-green");
+    if (detach) return 0;
+    printLine(tab, mariowOSI18n.t("terminal.acode.watching", "Watching it for errors · Ctrl+C stops watching (the preview stays open)"), "color-gray");
+    let seen = 0, runtimeErrors = 0, started = Date.now();
+    const kinds = { error: "error", rejection: "error", resource: "error", "console-error": "error", "console-warn": "warning" };
+    try {
+      for (;;) {
+        while (seen < reports.length) {
+          const report = reports[seen++];
+          const where = P.locate(report);
+          if (where.project !== project.name) continue;
+          if (report.kind === "load") { if (Date.now() - started > 1500) printLine(tab, mariowOSI18n.t("terminal.acode.reloaded", "↻ reloaded"), "color-gray"); continue; }
+          const severity = kinds[report.kind] || "error";
+          if (severity === "error") runtimeErrors++;
+          const file = where.file || "index.html";
+          const found = report.kind === "resource" ? P.resourceLine(project.files[file], report) : null;
+          printProblems(tab, [{ file, line: (found && found.line) || where.line || 1, col: (found && found.col) || where.col || 1, severity, message: report.message, source: report.kind.replace("console-", "console.") }]);
+        }
+        if (Date.now() - started > 2500 && !P.isPreviewOpen(project.name) && P.desktopWindow()) {
+          printLine(tab, mariowOSI18n.t("terminal.acode.preview-closed", "The preview was closed."), "color-gray");
+          break;
+        }
+        if (!(await pause(tab, 250))) break;
+      }
+    } finally {
+      if (channel) channel.close();
+    }
+    return runtimeErrors ? 1 : 0;
+  }
+
+  async function runACode(tab, args) {
+    const sub = args[1];
+    if (sub === "help" || sub === "--help") {
+      printTable(tab, mariowOSI18n.t("terminal.acode.title", "ACode from the terminal:"), commandTableHeaders(), Object.values(ACODE_SUBCOMMANDS));
+      printLine(tab, mariowOSI18n.t("terminal.acode.help-footer", "Projects live in ~/ACode/<project>. Without a project name, the folder you are in (or the one open in ACode) is used.\nIn ACode's own terminal, build, run, check and install work on their own."), "color-gray");
+      return;
+    }
+    const P = await loadACode();
+    if (!sub || sub === "open") {
+      const name = args[2] ? acodeProjectName(tab, args[2]) : null;
+      if (name) await loadACodeProject(tab, P, name);
+      // ACode picks this up when it starts, or right away if it is already open.
+      if (name) { try { localStorage.setItem("acode.open", JSON.stringify({ project: name, at: Date.now() })); } catch (error) {} }
+      return openApp(tab, "acode");
+    }
+    if (sub === "list" || sub === "ls") {
+      const projects = await P.listProjects();
+      if (!projects.length) { printLine(tab, mariowOSI18n.t("terminal.acode.empty", "No projects yet. Create one with: acode new myapp")); return; }
+      printTable(tab, mariowOSI18n.t("terminal.acode.projects", "Projects in ~/ACode:"), [mariowOSI18n.t("terminal.table.project", "project"), mariowOSI18n.t("terminal.table.modified", "modified")],
+        projects.map(p => [p.name, p.mtime ? new Date(p.mtime).toLocaleString(mariowOSI18n.locale) : ""]));
+      return;
+    }
+    if (sub === "new" || sub === "create") {
+      const { opts, rest } = getopt(args.slice(1), { values: "t", long: { template: "t" } });
+      if (rest.length !== 1) throw new Error(mariowOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `acode ${ACODE_SUBCOMMANDS.new[0]}` }));
+      const template = opts.t || "app";
+      if (!P.TEMPLATES[template]) throw new Error(mariowOSI18n.t("terminal.acode.bad-template", "unknown template '{template}': use {list}", { template, list: Object.keys(P.TEMPLATES).join(", ") }));
+      const project = await P.createProject(rest[0], template);
+      printLine(tab, `✔ ${mariowOSI18n.t("terminal.acode.created", "Created {path} ({template}, {count} files)", { path: `~/ACode/${project.name}`, template: P.TEMPLATES[template].title, count: Object.keys(project.files).length })}`, "color-green");
+      printLine(tab, mariowOSI18n.t("terminal.acode.created-hint", "Next: cd ~/ACode/{name} && acode run   ·   or open it in ACode: acode open {name}", { name: project.name.includes(" ") ? `"${project.name}"` : project.name }), "color-gray");
+      return;
+    }
+    const known = ["check", "lint", "build", "run", "install"];
+    if (!known.includes(sub)) {
+      const suggestion = closestMatch(sub, Object.keys(ACODE_SUBCOMMANDS));
+      throw new Error(suggestion
+        ? mariowOSI18n.t("terminal.acode.invalid-suggest", "unknown command '{sub}'. Did you mean 'acode {suggestion}'?", { sub, suggestion })
+        : mariowOSI18n.t("terminal.acode.invalid", "unknown command '{sub}'. Use 'acode help'.", { sub }));
+    }
+    const flags = args.slice(2).filter(a => a.startsWith("-"));
+    const names = args.slice(2).filter(a => !a.startsWith("-"));
+    if (names.length > 1) throw new Error(mariowOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `acode ${(ACODE_SUBCOMMANDS[sub] || ACODE_SUBCOMMANDS.check)[0]}` }));
+    const name = acodeProjectName(tab, names[0]);
+    const project = await loadACodeProject(tab, P, name);
+
+    if (sub === "check" || sub === "lint") {
+      const stop = startSpinner(tab, mariowOSI18n.t("terminal.acode.checking", "Checking {name}...", { name }));
+      let problems;
+      try { problems = await P.check(project); } finally { stop(); }
+      printProblems(tab, problems);
+      const hasErrors = problems.some(p => p.severity === "error");
+      printLine(tab, `${hasErrors ? "✖" : "✔"} ${name}: ${problemSummary(problems)}`, hasErrors ? "color-red" : problems.length ? "color-yellow" : "color-green");
+      return hasErrors ? 1 : 0;
+    }
+    if (sub === "build") {
+      const stop = startSpinner(tab, mariowOSI18n.t("terminal.acode.building", "Building {name}...", { name }));
+      let result;
+      try { result = await P.build(project); } finally { stop(); }
+      printProblems(tab, result.problems, { quietInfo: true });
+      if (!result.ok) {
+        printLine(tab, `✖ ${mariowOSI18n.t("terminal.acode.build-failed", "Build failed: {summary}. Fix the errors and build again.", { summary: problemSummary(result.problems) })}`, "color-red");
+        return 1;
+      }
+      printLine(tab, `✔ ${mariowOSI18n.t("terminal.acode.built", "Built {path} ({count} files, {size})", { path: result.output.replace(/^\/home/, "~"), count: result.count, size: formatBytes(result.size) })}`, "color-green");
+      return 0;
+    }
+    if (sub === "run") return acodeRun(tab, P, project, flags.includes("-d") || flags.includes("--detach"));
+    if (sub === "install") {
+      const problems = await P.check(project);
+      if (problems.some(p => p.severity === "error")) {
+        printProblems(tab, problems.filter(p => p.severity === "error"));
+        printLine(tab, `✖ ${mariowOSI18n.t("terminal.acode.install-errors", "Fix the errors before installing.")}`, "color-red");
+        return 1;
+      }
+      const appId = P.appId(name);
+      const title = P.appTitle(project);
+      const already = (await installedApps().catch(() => [])).some(app => app.appId === appId);
+      printLine(tab, mariowOSI18n.t("terminal.acode.installing", "{action} {name} as the app '{id}' (\"{title}\")...", {
+        action: already ? mariowOSI18n.t("terminal.acode.updating", "Updating") : mariowOSI18n.t("terminal.acode.installing-verb", "Installing"), name, id: appId, title
+      }), "color-blue");
+      await requireAuth(tab);
+      const result = await api("/api/store/sideload", { appId, title, icon: "", path: project.root });
+      printLine(tab, `✔ ${mariowOSI18n.t("terminal.get.installed", "{pkg} installed successfully.", { pkg: appId })}`, "color-green");
+      printLine(tab, mariowOSI18n.t("terminal.acode.install-note", "It runs isolated like any third-party app, so same-origin system APIs that work in the preview are not available to it. Open it with: open {id}", { id: appId }), "color-gray");
+      if (IS_EMBEDDED && !already) DESKTOP.postMessage({ type: "app-installed-live", app: { appId, title: result.app.title, icon: result.app.icon, url: result.app.url } }, window.location.origin);
+      return 0;
+    }
+  }
+
+  COMMANDS.acode = {
+    group: "System", usage: "acode <command> [project]",
+    desc: mariowOSI18n.t("terminal.cmd.acode", "ACode from the terminal: new, list, check, build, run, install, open"),
+    complete: async (tab, index, args) => {
+      if (index === 1) return Object.keys(ACODE_SUBCOMMANDS);
+      if (index === 2 && args[1] !== "new") {
+        try { return (await (await loadACode()).listProjects()).map(p => p.name); } catch (error) { return null; }
+      }
+      return null;
+    },
+    run: (tab, args) => runACode(tab, args)
+  };
 
   // ---------------------------------------------------------------- help mwex
   HELP_TOPICS.mwex = tab => {
