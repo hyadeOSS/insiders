@@ -1,5 +1,5 @@
 <!--
-mariowOS Video Player - (C) 2026 mariowstech and the mariowOS team
+hyadeOS Video Player - (C) 2026 mariowstech and the hyadeOS team
 Licensed under the Apache License, Version 2.0
 -->
 <!DOCTYPE html>
@@ -169,7 +169,7 @@ Licensed under the Apache License, Version 2.0
   const $ = id => document.getElementById(id);
   const video = $('video'), stage = $('stage'), empty = $('empty'), controls = $('controls'),
         centerPlay = $('centerPlay'), fileInput = $('fileInput');
-  $('title').textContent = mariowOSI18n.t("video.empty.title", "No video open");
+  $('title').textContent = hyadeOSI18n.t("video.empty.title", "No video open");
   const paintRange = input => input.style.setProperty('--fill', (input.value - input.min) / (input.max - input.min) * 100 + '%');
   paintRange($('vol'));
   let items = [];     // { url, name }
@@ -204,7 +204,7 @@ Licensed under the Apache License, Version 2.0
     video.play().catch(() => {});
     const it = items[i];
     $('title').textContent = it.name;
-    $('subtitle').textContent = items.length > 1 ? mariowOSI18n.t("video.position", "{current} of {total}", { current: i + 1, total: items.length }) : '';
+    $('subtitle').textContent = items.length > 1 ? hyadeOSI18n.t("video.position", "{current} of {total}", { current: i + 1, total: items.length }) : '';
     $('stage').classList.add('has-video');
     renderQueue();
     $('btnPrev').style.display = items.length > 1 ? '' : 'none';

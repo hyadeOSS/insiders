@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="/desktop/assets/i18n-data.js"></script>
+    <script src="/desktop/assets/i18n.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="/desktop/assets/fonts/fonts.css" rel="stylesheet">
+    <link href="/desktop/assets/setup.css" rel="stylesheet">
+    <title data-i18n="setup.title">hyadeOSS Setup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+    </style>
+<script src="/desktop/assets/hyadeoss-dialogs.js"></script>
+</head>
+<body class="setup-page" data-step="3">
+
+    <h1 class="setup-title" data-words="Privacy|Riservatezza|Confidențialitate|保密性">Privacy</h1>
+
+    <main class="setup-stage">
+        <div class="setup-content">
+            <div class="setup-panel">
+                <h2 data-i18n="setup.preferences.heading">Help improve hyadeOSS daily?</h2>
+                <p><span data-i18n="setup.preferences.description">Receive daily emails with links to Discord flags and issue updates. Stay updated on the latest problems and features. Optional: you can turn it off at any time.</span> <a href="/desktop/privacy.html" data-i18n="setup.privacy-notice">Privacy notice</a></p>
+
+                <div class="toggle-container" id="mainToggle" role="switch" tabindex="0" aria-labelledby="toggleLabel">
+                    <span class="toggle-label" id="toggleLabel" data-i18n="setup.preferences.toggle">Send daily Discord flags emails</span>
+                    <div class="switch">
+                        <div class="circle"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <a href="updates.html" class="setup-next" aria-label="Next" data-i18n-aria-label="setup.next">
+        <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+    </a>
+
+    <script src="/desktop/assets/setup.js"></script>
+    <script>
+        // Logica Toggle Interattivo
+        const toggle = document.getElementById('mainToggle');
+
+        let emailVerified = false;
+        let busy = false;
+
+        // Load initial state
+        fetch('/api/preferences')
+            .then(response => response.json())
+            .then(data => {
+                emailVerified = !!data.verified;
+                if (data.sendReports) toggle.classList.add('active');
+            })
+            .catch(err => console.error('Error loading preferences:', err));
+
+        // Double opt-in: the digest can only be enabled for a verified address.
+        async function verifyEmail() {
+            const email = await mDialog.prompt(hyadeOSSI18n.t("setup.preferences.email-prompt", "Enter the email address that will receive the daily digest:"),
+                { title: hyadeOSSI18n.t("setup.preferences.email-title", "Verify your email"), type: "email", placeholder: hyadeOSSI18n.t("setup.preferences.email-placeholder", "name@example.com"), okText: hyadeOSSI18n.t("setup.preferences.send-code", "Send code") });
+            if (!email) return false;
+            let res = await fetch('/api/email/send-code', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email })
+            }).then(r => r.json());
+            if (!res.success) { await mDialog.alert(res.error || hyadeOSSI18n.t("setup.preferences.send-code-failed", "Could not send the code."), { kind: 'error' }); return false; }
+            const code = await mDialog.prompt(hyadeOSSI18n.t("setup.preferences.code-prompt", "We sent a 6-digit code to {email}. Enter it here:", { email }),
+                { title: hyadeOSSI18n.t("setup.preferences.code-title", "Verification code"), placeholder: "123456", okText: hyadeOSSI18n.t("setup.preferences.verify", "Verify") });
+            if (!code) return false;
+            res = await fetch('/api/email/verify-code', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code: code.trim() })
+            }).then(r => r.json());
+            if (!res.success) { await mDialog.alert(res.error || hyadeOSSI18n.t("setup.preferences.invalid-code", "Invalid code."), { kind: 'error' }); return false; }
+            emailVerified = true;
+            return true;
+        }
+
+        toggle.addEventListener('click', async () => {
+            if (busy) return;
+            busy = true;
+            try {
+                const enable = !toggle.classList.contains('active');
+                if (enable && !emailVerified && !(await verifyEmail())) return;
+                const data = await fetch('/api/preferences', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sendReports: enable })
+                }).then(r => r.json());
+                if (data.success) toggle.classList.toggle('active', enable);
+                else await mDialog.alert(data.error || hyadeOSSI18n.t("setup.preferences.save-failed", "Could not save the preference."), { kind: 'error' });
+            } catch (err) {
+                console.error('Error saving preference:', err);
+                await mDialog.alert(hyadeOSSI18n.t("setup.preferences.save-failed-later", "Could not save the preference. Try again later."), { kind: 'error' });
+            } finally {
+                busy = false;
+            }
+        });
+    </script>
+</body>
+</html>

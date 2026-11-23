@@ -1,5 +1,5 @@
 <!--
-mariowOS Pictures - (C) 2026 mariowstech and the mariowOS team
+hyadeOS Pictures - (C) 2026 mariowstech and the hyadeOS team
 Licensed under the Apache License, Version 2.0
 -->
 <!DOCTYPE html>
@@ -141,7 +141,7 @@ Licensed under the Apache License, Version 2.0
   "use strict";
   const $ = id => document.getElementById(id);
   const stage = $('stage'), empty = $('empty'), filmstrip = $('filmstrip'), fileInput = $('fileInput');
-  $('title').textContent = mariowOSI18n.t("pictures.empty.title", "No image open");
+  $('title').textContent = hyadeOSI18n.t("pictures.empty.title", "No image open");
   let items = [];          // { url, name }
   let index = -1;
   let imgEl = null;
@@ -189,7 +189,7 @@ Licensed under the Apache License, Version 2.0
     rotation = 0;
     const it = items[i];
     $('title').textContent = it.name;
-    $('subtitle').textContent = items.length > 1 ? mariowOSI18n.t("pictures.position", "{current} of {total}", { current: i + 1, total: items.length }) : '';
+    $('subtitle').textContent = items.length > 1 ? hyadeOSI18n.t("pictures.position", "{current} of {total}", { current: i + 1, total: items.length }) : '';
     $('nowArt').style.backgroundImage = `url("${it.url.replace(/"/g, '%22')}")`;
     $('nowArt').classList.add('has-image');
     $('navPrev').hidden = items.length < 2;

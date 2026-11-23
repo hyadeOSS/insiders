@@ -247,8 +247,8 @@
 // Language: the choices come from /desktop/assets/locales/languages.json; the pick is
 // saved in the system settings, then Settings reloads in the new language.
 const languageSelect = document.getElementById('languageSelect');
-mariowOSI18n.ready.then(async () => {
-  Object.entries(mariowOSI18n.languages).forEach(([code, name]) => {
+hyadeOSI18n.ready.then(async () => {
+  Object.entries(hyadeOSI18n.languages).forEach(([code, name]) => {
     if (code === 'en') return;
     languageSelect.add(new Option(name, code));
   });
@@ -263,7 +263,7 @@ languageSelect.addEventListener('change', async () => {
     if (!response.ok) throw new Error(response.status);
     (window.parent || window).location.reload();
   } catch (e) {
-    languageSelect.value = mariowOSI18n.language;
+    languageSelect.value = hyadeOSI18n.language;
   }
 });
 

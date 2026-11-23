@@ -1,0 +1,206 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script src="/desktop/assets/i18n-data.js"></script>
+<script src="/desktop/assets/i18n.js"></script>
+<script src="/desktop/assets/accent.js"></script>
+<script src="/desktop/assets/hyadeoss-dialogs.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rule History</title>
+
+<link href="/desktop/assets/fonts/fonts.css" rel="stylesheet">
+
+<style>
+body {
+  font-family: 'Poppins', sans-serif;
+  color: #fff;
+  margin: 0;
+  padding: 40px;
+  background: transparent;
+  overflow-y: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.container {
+  max-width: 600px;
+  width: 100%;
+  position: relative;
+  background: transparent;
+}
+
+.header {
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back-btn {
+  font-size: 18px;
+  color: rgba(255,255,255,0.5);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.back-btn:hover {
+  color: #fff;
+}
+
+.banner {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  padding: 18px;
+  margin-bottom: 15px;
+}
+
+.banner .title {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.banner .desc {
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 4px;
+}
+
+.history-item {
+  background: rgba(255,255,255,0.05);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 8px;
+}
+
+.history-title {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.history-desc {
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 3px;
+}
+
+.history-time {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 5px;
+}
+
+.btn {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+  font-size: 12px;
+  margin-top: 10px;
+  transition: background 0.15s;
+}
+
+.btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+html::-webkit-scrollbar {
+  display: none;
+}
+</style>
+<link rel="stylesheet" href="/desktop/assets/fonts/fonts.css">
+<link rel="stylesheet" href="settings-submenu.css">
+</head>
+<body>
+
+<div class="container">
+  <div class="settings-page-header">
+    <button class="settings-page-back" type="button" aria-label="Back" data-i18n-aria-label="common.back" onclick="window.history.back()">
+      <span class="material-symbols-outlined">arrow_back_ios_new</span>
+    </button>
+    <h1 data-i18n="settings.rule-history.title">Rule History</h1>
+  </div>
+
+  <div class="banner">
+    <div class="title" data-i18n="settings.rule-history.banner">Execution History</div>
+    <div class="desc" data-i18n="settings.rule-history.banner-desc">View the history of executed automation rules.</div>
+  </div>
+
+  <div class="panel" id="historyContainer">
+    <!-- history load position -->
+  </div>
+
+  <button class="btn" id="clearHistoryBtn" data-i18n="settings.rule-history.clear">Clear History</button>
+</div>
+
+<script>
+const historyContainer = document.getElementById('historyContainer');
+// History entries store English action names; show them in the current language.
+const ACTION_LABELS = {
+  'Created': hyadeOSSI18n.t('settings.rule-history.action-created', 'Created'),
+  'Edited': hyadeOSSI18n.t('settings.rule-history.action-edited', 'Edited'),
+  'Deleted': hyadeOSSI18n.t('settings.rule-history.action-deleted', 'Deleted'),
+  'Created from template': hyadeOSSI18n.t('settings.rule-history.action-from-template', 'Created from template'),
+  'Enabled': hyadeOSSI18n.t('settings.rule-history.action-enabled', 'Enabled'),
+  'Disabled': hyadeOSSI18n.t('settings.rule-history.action-disabled', 'Disabled')
+};
+const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+
+function loadHistory() {
+  const history = JSON.parse(localStorage.getItem('ruleHistory')) || [];
+  historyContainer.innerHTML = '';
+
+  if (history.length === 0) {
+    historyContainer.innerHTML = '<p class="empty-state" data-i18n="settings.rule-history.empty">No history found.</p>';
+    return;
+  }
+
+  // sorting 
+  history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  history.forEach(item => {
+    const historyItem = document.createElement('div');
+    historyItem.className = 'history-item';
+    const date = new Date(item.timestamp).toLocaleString(hyadeOSSI18n.locale);
+    const icon = document.createElement('div');
+    icon.className = 'icon-badge';
+    icon.innerHTML = '<span class="material-symbols-outlined">history</span>';
+    const details = document.createElement('div');
+    details.className = 'text-group';
+    const title = document.createElement('div');
+    title.className = 'history-title';
+    const ruleName = item.ruleName === 'All Rules' ? hyadeOSSI18n.t('settings.rule-history.all-rules', 'All Rules') : item.ruleName;
+    title.textContent = `${ruleName} - ${ACTION_LABELS[item.action] || item.action}`;
+    const description = document.createElement('div');
+    description.className = 'history-desc';
+    description.textContent = hyadeOSSI18n.t('settings.rule-history.performed', 'Action performed');
+    const timestamp = document.createElement('div');
+    timestamp.className = 'history-time';
+    timestamp.textContent = date;
+    details.append(title, description, timestamp);
+    historyItem.append(icon, details);
+    historyContainer.appendChild(historyItem);
+  });
+}
+
+clearHistoryBtn.addEventListener('click', async () => {
+  if (await mDialog.confirm(hyadeOSSI18n.t('settings.rule-history.clear-confirm', 'Are you sure you want to clear all history?'), { danger: true, okText: hyadeOSSI18n.t('settings.rule-history.clear-ok', 'Clear') })) {
+    localStorage.removeItem('ruleHistory');
+    loadHistory();
+  }
+});
+
+loadHistory();
+</script>
+
+</body>
+</html>

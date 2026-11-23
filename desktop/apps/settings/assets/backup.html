@@ -6,7 +6,7 @@
   <script src="/desktop/assets/i18n-data.js"></script>
   <script src="/desktop/assets/i18n.js"></script>
   <script src="/desktop/assets/accent.js"></script>
-<script src="/desktop/assets/mariowos-dialogs.js"></script>
+<script src="/desktop/assets/hyadeos-dialogs.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title data-i18n="settings.nav.backup">Backup &amp; Restore</title>
@@ -90,9 +90,9 @@ function importBackup(e) {
     fetch('/api/system/restore', { method: 'POST', body: fd })
       .then(r => r.json()).then(res => {
         if(res.success) {
-          window.parent.postMessage({ type: 'show-notification', title: mariowOSI18n.t("settings.backup.restored", "Backup Restored"), msg: mariowOSI18n.t("settings.backup.restored.message", "System config updated successfully."), icon: '☁️' }, '*');
+          window.parent.postMessage({ type: 'show-notification', title: hyadeOSI18n.t("settings.backup.restored", "Backup Restored"), msg: hyadeOSI18n.t("settings.backup.restored.message", "System config updated successfully."), icon: '☁️' }, '*');
         } else {
-          mDialog.alert(mariowOSI18n.t("settings.backup.error", "Error: {message}", { message: res.error }));
+          mDialog.alert(hyadeOSI18n.t("settings.backup.error", "Error: {message}", { message: res.error }));
         }
       });
   }, () => {

@@ -1,5 +1,5 @@
 /*
-mariowOS Terminal - more commands - (C) 2026 mariowstech and the mariowOS team
+hyadeOS Terminal - more commands - (C) 2026 mariowstech and the hyadeOS team
 Licensed under the Apache License, Version 2.0.
 
 Loaded after the Terminal's main script: it adds commands to the same COMMANDS table
@@ -22,10 +22,10 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         const eq = arg.indexOf("=");
         const name = arg.slice(2, eq > 0 ? eq : undefined);
         const key = long[name];
-        if (!key) throw new Error(mariowOSI18n.t("terminal.error.unknown-option", "unknown option '{option}'", { option: arg }));
+        if (!key) throw new Error(hyadeOSI18n.t("terminal.error.unknown-option", "unknown option '{option}'", { option: arg }));
         if (values.includes(key)) {
           const value = eq > 0 ? arg.slice(eq + 1) : args[++k];
-          if (value === undefined) throw new Error(mariowOSI18n.t("terminal.error.option-needs-value", "option '{option}' requires an argument", { option: arg }));
+          if (value === undefined) throw new Error(hyadeOSI18n.t("terminal.error.option-needs-value", "option '{option}' requires an argument", { option: arg }));
           opts[key] = opts[key] === undefined ? value : [].concat(opts[key], value);
         } else opts[key] = true;
         continue;
@@ -35,11 +35,11 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           const c = arg[j];
           if (values.includes(c)) {
             const value = j + 1 < arg.length ? arg.slice(j + 1) : args[++k];
-            if (value === undefined) throw new Error(mariowOSI18n.t("terminal.error.option-needs-value", "option '{option}' requires an argument", { option: `-${c}` }));
+            if (value === undefined) throw new Error(hyadeOSI18n.t("terminal.error.option-needs-value", "option '{option}' requires an argument", { option: `-${c}` }));
             opts[c] = opts[c] === undefined ? value : [].concat(opts[c], value);
             break;
           }
-          if (!flags.includes(c)) throw new Error(mariowOSI18n.t("terminal.error.invalid-option", "invalid option -- '{option}'", { option: c }));
+          if (!flags.includes(c)) throw new Error(hyadeOSI18n.t("terminal.error.invalid-option", "invalid option -- '{option}'", { option: c }));
           opts[c] = true;
         }
         continue;
@@ -50,7 +50,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
   }
   const list = value => value === undefined ? [] : [].concat(value);
   const toInt = (value, name) => {
-    if (!/^[+-]?\d+$/.test(String(value))) throw new Error(mariowOSI18n.t("terminal.error.not-a-number", "{name}: '{value}' is not a number", { name, value }));
+    if (!/^[+-]?\d+$/.test(String(value))) throw new Error(hyadeOSI18n.t("terminal.error.not-a-number", "{name}: '{value}' is not a number", { name, value }));
     return parseInt(value, 10);
   };
   const escapeRegExp = text => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -86,7 +86,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       try { data = await getDirectoryContents(virtualPath); } catch (error) { return; }
       const items = data.contents.slice().sort((a, b) => a.name.localeCompare(b.name));
       for (const item of items) {
-        if (++count > limit) throw new Error(mariowOSI18n.t("terminal.error.too-many-files", "stopped after {limit} entries", { limit }));
+        if (++count > limit) throw new Error(hyadeOSI18n.t("terminal.error.too-many-files", "stopped after {limit} entries", { limit }));
         const childPath = `${virtualPath === "/" ? "" : virtualPath}/${item.name}`;
         const childShown = shown === "." && root === "." ? `./${item.name}` : `${shown.replace(/\/$/, "")}/${item.name}`;
         await visit(item, childPath, childShown, depth + 1);
@@ -112,7 +112,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
   }
   function makeRegExp(source, flags) {
     try { return new RegExp(source, flags); }
-    catch (error) { throw new Error(mariowOSI18n.t("terminal.error.bad-regex", "invalid regular expression: {error}", { error: error.message.replace(/^Invalid regular expression: /, "") })); }
+    catch (error) { throw new Error(hyadeOSI18n.t("terminal.error.bad-regex", "invalid regular expression: {error}", { error: error.message.replace(/^Invalid regular expression: /, "") })); }
   }
 
   // Byte-oriented helpers for base64 / hashes (text is UTF-8).
@@ -255,7 +255,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     const headers = {};
     for (const header of list(opts.H)) {
       const colon = header.indexOf(":");
-      if (colon < 1) throw new Error(mariowOSI18n.t("terminal.curl.bad-header", "bad header '{header}' (use \"Name: value\")", { header }));
+      if (colon < 1) throw new Error(hyadeOSI18n.t("terminal.curl.bad-header", "bad header '{header}' (use \"Name: value\")", { header }));
       headers[header.slice(0, colon).trim()] = header.slice(colon + 1).trim();
     }
     if (opts.A) headers["User-Agent"] = opts.A;
@@ -319,9 +319,9 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     }
     if (!opts.I && !discard) {
       if (data.saved) {
-        if (!opts.s) screenLine(tab, mariowOSI18n.t("terminal.curl.saved", "Saved {size} to {path} ({status}, {time} s)", { size: formatBytes(data.size), path: data.saved, status: data.status, time: data.time.toFixed(2) }), "color-gray");
+        if (!opts.s) screenLine(tab, hyadeOSI18n.t("terminal.curl.saved", "Saved {size} to {path} ({status}, {time} s)", { size: formatBytes(data.size), path: data.saved, status: data.status, time: data.time.toFixed(2) }), "color-gray");
       } else if (data.binary) {
-        printError(tab, mariowOSI18n.t("terminal.curl.binary", "Warning: Binary output can mess up your terminal. Use \"-o <file>\" to save it to a file."));
+        printError(tab, hyadeOSI18n.t("terminal.curl.binary", "Warning: Binary output can mess up your terminal. Use \"-o <file>\" to save it to a file."));
         if (!opts.w) return 23;
       } else if (data.text) {
         printText(tab, data.text);
@@ -333,7 +333,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     }
     if (!opts.L && data.status >= 300 && data.status < 400 && !opts.s && !opts.i && !opts.I && !isCapturing(tab)) {
       const location = (data.headers.find(([key]) => key === "location") || [])[1];
-      if (location) screenLine(tab, mariowOSI18n.t("terminal.curl.redirect", "(redirected to {location} — add -L to follow it)", { location }), "color-gray");
+      if (location) screenLine(tab, hyadeOSI18n.t("terminal.curl.redirect", "(redirected to {location} — add -L to follow it)", { location }), "color-gray");
     }
     return 0;
   }
@@ -348,7 +348,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     const target = toStdout ? null : normalizeVirtualPath(fileName, tab.currentDirectory);
     if (!opts.q) screenLine(tab, `--${new Date().toISOString().replace("T", " ").slice(0, 19)}--  ${url.href}`, "color-gray");
     const data = await curlRequest(tab, {
-      spinner: opts.q ? "" : mariowOSI18n.t("terminal.wget.downloading", "Downloading {name}...", { name: toStdout ? url.href : fileName }),
+      spinner: opts.q ? "" : hyadeOSI18n.t("terminal.wget.downloading", "Downloading {name}...", { name: toStdout ? url.href : fileName }),
       request: { url: url.href, method: "GET", headers: {}, follow: true, timeout: opts.T ? Number(opts.T) : 60, saveTo: target }
     });
     if (!data.success) { printError(tab, `wget: ${data.error}`); return 4; }
@@ -371,7 +371,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     if (!batch) screenLine(tab, `Trying ${host}...`, "color-gray");
     let opened;
     try { opened = await api("/api/terminal/socket/open", { host, port, raw }); }
-    catch (error) { throw new Error(raw ? `${host} ${port}: ${error.message}` : mariowOSI18n.t("terminal.telnet.unable", "Unable to connect to remote host: {error}", { error: error.message })); }
+    catch (error) { throw new Error(raw ? `${host} ${port}: ${error.message}` : hyadeOSI18n.t("terminal.telnet.unable", "Unable to connect to remote host: {error}", { error: error.message })); }
     const id = opened.id;
     const sendData = text => api(`/api/terminal/socket/${id}/send`, { data: text }).catch(() => {});
     const source = new EventSource(`/api/terminal/socket/${id}/stream`);
@@ -430,9 +430,9 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       lines.forEach(flushLine);
       if (partialSpan) partialSpan.replaceChildren(ansi.preview(partial));
     });
-    source.addEventListener("close", () => finish(mariowOSI18n.t("terminal.telnet.closed-remote", "Connection closed by foreign host.")));
-    source.onerror = () => { if (source.readyState === EventSource.CLOSED) finish(mariowOSI18n.t("terminal.telnet.closed", "Connection closed.")); };
-    const off = onInterrupt(tab, () => finish(mariowOSI18n.t("terminal.telnet.closed", "Connection closed.")));
+    source.addEventListener("close", () => finish(hyadeOSI18n.t("terminal.telnet.closed-remote", "Connection closed by foreign host.")));
+    source.onerror = () => { if (source.readyState === EventSource.CLOSED) finish(hyadeOSI18n.t("terminal.telnet.closed", "Connection closed.")); };
+    const off = onInterrupt(tab, () => finish(hyadeOSI18n.t("terminal.telnet.closed", "Connection closed.")));
 
     if (batch) {
       if (stdinText) await sendData(raw ? stdinText : stdinText.replace(/\r?\n/g, "\r\n"));
@@ -443,7 +443,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     }
 
     screenLine(tab, `Connected to ${host}.`, "color-gray");
-    if (!raw) screenLine(tab, mariowOSI18n.t("terminal.telnet.escape", "Escape character is '^]'."), "color-gray");
+    if (!raw) screenLine(tab, hyadeOSI18n.t("terminal.telnet.escape", "Escape character is '^]'."), "color-gray");
     while (!closed) {
       const answer = promptInput(tab, `<span class="sock-partial"></span>`, { secret: serverEcho });
       const lineElement = tab.currentCursor && tab.currentCursor.parentElement;
@@ -453,7 +453,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       try { text = await answer; }
       catch (error) {
         if (error === SESSION_CLOSED) break;
-        finish(mariowOSI18n.t("terminal.telnet.closed", "Connection closed."));
+        finish(hyadeOSI18n.t("terminal.telnet.closed", "Connection closed."));
         break;
       }
       partialSpan = null;
@@ -468,23 +468,23 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
   }
 
   // --------------------------------------------------------------- store
-  const TRUSTED_OWNERS = ["mariowos", "mariowstech"];
+  const TRUSTED_OWNERS = ["hyadeoss", "mariowstech"];
   const STORE_SUBCOMMANDS = {
-    add: ["add <source> [--id ID] [--title TITLE] [--icon ICON]", mariowOSI18n.t("terminal.store.cmd.add", "Install an app from a GitHub repository, a raw .html URL, or a folder / .html file in your home (requires password)")],
-    publish: ["publish <id> <github-url> [--title T] [--desc D] [--dev NAME] [--icon I]", mariowOSI18n.t("terminal.store.cmd.publish", "Add an app to the local Store catalog, so it appears in the Store and in 'get list'")],
-    list: ["list", mariowOSI18n.t("terminal.store.cmd.list", "List the installed apps and where they came from")],
-    info: ["info <id>", mariowOSI18n.t("terminal.store.cmd.info", "Show what the Store knows about an app")],
-    remove: ["remove <id>", mariowOSI18n.t("terminal.store.cmd.remove", "Uninstall an app (requires password)")],
-    open: ["open", mariowOSI18n.t("terminal.store.cmd.open", "Open the Store app")],
-    help: ["help", mariowOSI18n.t("terminal.store.cmd.help", "Show this help")]
+    add: ["add <source> [--id ID] [--title TITLE] [--icon ICON]", hyadeOSI18n.t("terminal.store.cmd.add", "Install an app from a GitHub repository, a raw .html URL, or a folder / .html file in your home (requires password)")],
+    publish: ["publish <id> <github-url> [--title T] [--desc D] [--dev NAME] [--icon I]", hyadeOSI18n.t("terminal.store.cmd.publish", "Add an app to the local Store catalog, so it appears in the Store and in 'get list'")],
+    list: ["list", hyadeOSI18n.t("terminal.store.cmd.list", "List the installed apps and where they came from")],
+    info: ["info <id>", hyadeOSI18n.t("terminal.store.cmd.info", "Show what the Store knows about an app")],
+    remove: ["remove <id>", hyadeOSI18n.t("terminal.store.cmd.remove", "Uninstall an app (requires password)")],
+    open: ["open", hyadeOSI18n.t("terminal.store.cmd.open", "Open the Store app")],
+    help: ["help", hyadeOSI18n.t("terminal.store.cmd.help", "Show this help")]
   };
 
   // GitHub links people copy from the browser, turned into what the kernel installs:
   // a repository clone (.git) or a single raw .html file.
   function resolveStoreSource(source) {
     let url;
-    try { url = new URL(source); } catch (error) { return { error: mariowOSI18n.t("terminal.store.bad-url", "'{source}' is not a valid URL", { source }) }; }
-    if (url.protocol !== "https:") return { error: mariowOSI18n.t("terminal.store.https-only", "only https:// sources can be installed") };
+    try { url = new URL(source); } catch (error) { return { error: hyadeOSI18n.t("terminal.store.bad-url", "'{source}' is not a valid URL", { source }) }; }
+    if (url.protocol !== "https:") return { error: hyadeOSI18n.t("terminal.store.https-only", "only https:// sources can be installed") };
     const parts = url.pathname.split("/").filter(Boolean);
     if (url.hostname === "github.com" && parts.length >= 2) {
       const [owner, repoRaw] = parts;
@@ -493,25 +493,25 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       if (parts[2] === "blob" && parts.length >= 5 && /\.html?$/i.test(parts[parts.length - 1])) {
         return { repoUrl: `https://raw.githubusercontent.com/${owner}/${repo}/${parts.slice(3).join("/")}`, id: repo, owner, kind: "file" };
       }
-      return { error: mariowOSI18n.t("terminal.store.github-shape", "use the repository address (https://github.com/owner/repo) or a link to a single .html file") };
+      return { error: hyadeOSI18n.t("terminal.store.github-shape", "use the repository address (https://github.com/owner/repo) or a link to a single .html file") };
     }
     if (url.hostname === "raw.githubusercontent.com" && parts.length >= 4) {
-      if (!/\.html?$/i.test(parts[parts.length - 1])) return { error: mariowOSI18n.t("terminal.store.raw-html", "a raw file must be an .html page") };
+      if (!/\.html?$/i.test(parts[parts.length - 1])) return { error: hyadeOSI18n.t("terminal.store.raw-html", "a raw file must be an .html page") };
       return { repoUrl: url.href, id: parts[1], owner: parts[0], kind: "file" };
     }
-    return { error: mariowOSI18n.t("terminal.store.github-only", "only GitHub repositories and raw.githubusercontent.com files can be installed from the internet") };
+    return { error: hyadeOSI18n.t("terminal.store.github-only", "only GitHub repositories and raw.githubusercontent.com files can be installed from the internet") };
   }
   const cleanAppId = value => String(value || "").replace(/\.html?$/i, "").replace(/[^A-Za-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
 
   function showStoreHelp(tab) {
-    printHTML(tab, `<div>${mariowOSI18n.t("terminal.usage", "Usage: {syntax}", { syntax: `<span class="color-yellow">store</span> <span class="color-gray">&lt;command&gt;</span> [arguments]` })}</div>`);
-    printTable(tab, mariowOSI18n.t("terminal.store.commands-title", "Store Commands:"), commandTableHeaders(), Object.values(STORE_SUBCOMMANDS));
-    printLine(tab, mariowOSI18n.t("terminal.store.examples", "Examples:\n  store add https://github.com/someone/cool-app\n  store add ~/Projects/my-app --title \"My App\"      (a folder with an index.html)\n  store add page.html --id notes2\n  store publish my-app https://github.com/me/my-app --desc \"Does things\""), "color-gray");
+    printHTML(tab, `<div>${hyadeOSI18n.t("terminal.usage", "Usage: {syntax}", { syntax: `<span class="color-yellow">store</span> <span class="color-gray">&lt;command&gt;</span> [arguments]` })}</div>`);
+    printTable(tab, hyadeOSI18n.t("terminal.store.commands-title", "Store Commands:"), commandTableHeaders(), Object.values(STORE_SUBCOMMANDS));
+    printLine(tab, hyadeOSI18n.t("terminal.store.examples", "Examples:\n  store add https://github.com/someone/cool-app\n  store add ~/Projects/my-app --title \"My App\"      (a folder with an index.html)\n  store add page.html --id notes2\n  store publish my-app https://github.com/me/my-app --desc \"Does things\""), "color-gray");
   }
 
   async function storeAdd(tab, args) {
     const { opts, rest } = getopt(args, { values: "nti", long: { id: "n", title: "t", icon: "i" } });
-    if (rest.length !== 1) throw new Error(mariowOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `store ${STORE_SUBCOMMANDS.add[0]}` }));
+    if (rest.length !== 1) throw new Error(hyadeOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `store ${STORE_SUBCOMMANDS.add[0]}` }));
     const source = rest[0];
     let plan;
     if (/^https?:\/\//i.test(source)) {
@@ -520,49 +520,49 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       plan = { ...resolved, isolated: !TRUSTED_OWNERS.includes(String(resolved.owner).toLowerCase()) };
     } else {
       const virtualPath = normalizeVirtualPath(source, tab.currentDirectory);
-      if (virtualPath !== "/home" && !virtualPath.startsWith("/home/")) throw new Error(mariowOSI18n.t("terminal.store.home-only", "local apps must be in your home partition"));
+      if (virtualPath !== "/home" && !virtualPath.startsWith("/home/")) throw new Error(hyadeOSI18n.t("terminal.store.home-only", "local apps must be in your home partition"));
       const info = await statPath(virtualPath);
-      if (!info) throw new Error(`${source}: ${mariowOSI18n.t("terminal.error.no-such-file-short", "No such file or directory")}`);
-      if (info.type !== "folder" && !/\.html?$/i.test(virtualPath)) throw new Error(mariowOSI18n.t("terminal.store.local-shape", "choose a folder that has an index.html, or an .html file"));
+      if (!info) throw new Error(`${source}: ${hyadeOSI18n.t("terminal.error.no-such-file-short", "No such file or directory")}`);
+      if (info.type !== "folder" && !/\.html?$/i.test(virtualPath)) throw new Error(hyadeOSI18n.t("terminal.store.local-shape", "choose a folder that has an index.html, or an .html file"));
       if (info.type === "folder") {
         const data = await getDirectoryContents(virtualPath);
-        if (!data.contents.some(item => item.name === "index.html")) throw new Error(mariowOSI18n.t("terminal.store.no-index", "{path} has no index.html", { path: virtualPath }));
+        if (!data.contents.some(item => item.name === "index.html")) throw new Error(hyadeOSI18n.t("terminal.store.no-index", "{path} has no index.html", { path: virtualPath }));
       }
       plan = { localPath: virtualPath, id: virtualPath.split("/").pop(), kind: info.type === "folder" ? "folder" : "file", isolated: true };
     }
     const appId = cleanAppId(opts.n || plan.id);
-    if (!/^[A-Za-z0-9_-]+$/.test(appId)) throw new Error(mariowOSI18n.t("terminal.store.bad-id", "choose an app ID with --id (letters, digits, - and _)"));
+    if (!/^[A-Za-z0-9_-]+$/.test(appId)) throw new Error(hyadeOSI18n.t("terminal.store.bad-id", "choose an app ID with --id (letters, digits, - and _)"));
     const title = opts.t || appId;
     const installed = await installedApps().catch(() => []);
     const already = installed.some(app => app.appId === appId);
 
-    printLine(tab, mariowOSI18n.t("terminal.store.installing-from", "{action} '{id}' (\"{title}\") from {source}", {
-      action: already ? mariowOSI18n.t("terminal.store.updating", "Updating") : mariowOSI18n.t("terminal.store.installing", "Installing"),
+    printLine(tab, hyadeOSI18n.t("terminal.store.installing-from", "{action} '{id}' (\"{title}\") from {source}", {
+      action: already ? hyadeOSI18n.t("terminal.store.updating", "Updating") : hyadeOSI18n.t("terminal.store.installing", "Installing"),
       id: appId, title, source: plan.localPath || plan.repoUrl
     }), "color-blue");
-    if (plan.isolated) printLine(tab, mariowOSI18n.t("terminal.store.isolated", "  Third-party app: it runs isolated from the system, on its own origin."), "color-gray");
+    if (plan.isolated) printLine(tab, hyadeOSI18n.t("terminal.store.isolated", "  Third-party app: it runs isolated from the system, on its own origin."), "color-gray");
     await requireAuth(tab);
 
     if (plan.localPath) {
-      const stop = startSpinner(tab, mariowOSI18n.t("terminal.store.copying", "Copying {path}...", { path: plan.localPath }));
+      const stop = startSpinner(tab, hyadeOSI18n.t("terminal.store.copying", "Copying {path}...", { path: plan.localPath }));
       let result;
       try { result = await api("/api/store/sideload", { appId, title, icon: opts.i || "", path: plan.localPath }); }
       finally { stop(); }
-      printLine(tab, `✔ ${mariowOSI18n.t("terminal.get.installed", "{pkg} installed successfully.", { pkg: appId })}`, "color-green");
+      printLine(tab, `✔ ${hyadeOSI18n.t("terminal.get.installed", "{pkg} installed successfully.", { pkg: appId })}`, "color-green");
       if (IS_EMBEDDED && !already) DESKTOP.postMessage({ type: "app-installed-live", app: { appId, title: result.app.title, icon: result.app.icon, url: result.app.url } }, window.location.origin);
     } else {
       await executeInstall({ id: appId, title, icon: opts.i || "📦", repoUrl: plan.repoUrl }, tab);
     }
-    if (already) printLine(tab, mariowOSI18n.t("terminal.store.reopen", "Close and reopen the app to load the new version."), "color-gray");
-    printLine(tab, mariowOSI18n.t("terminal.store.open-hint", "Open it with: open {id}", { id: appId.toLowerCase() }), "color-gray");
+    if (already) printLine(tab, hyadeOSI18n.t("terminal.store.reopen", "Close and reopen the app to load the new version."), "color-gray");
+    printLine(tab, hyadeOSI18n.t("terminal.store.open-hint", "Open it with: open {id}", { id: appId.toLowerCase() }), "color-gray");
   }
 
   async function storePublish(tab, args) {
     const { opts, rest } = getopt(args, { values: "tdDi", long: { title: "t", desc: "d", description: "d", dev: "D", developer: "D", icon: "i" } });
-    if (rest.length !== 2) throw new Error(mariowOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `store ${STORE_SUBCOMMANDS.publish[0]}` }));
+    if (rest.length !== 2) throw new Error(hyadeOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `store ${STORE_SUBCOMMANDS.publish[0]}` }));
     const [rawId, rawUrl] = rest;
     const id = cleanAppId(rawId);
-    if (!id || id !== rawId) throw new Error(mariowOSI18n.t("terminal.store.bad-id", "choose an app ID with --id (letters, digits, - and _)"));
+    if (!id || id !== rawId) throw new Error(hyadeOSI18n.t("terminal.store.bad-id", "choose an app ID with --id (letters, digits, - and _)"));
     const resolved = resolveStoreSource(rawUrl);
     if (resolved.error) throw new Error(resolved.error);
     // What the flags did not say is asked (Enter keeps the default in brackets).
@@ -570,13 +570,13 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       const answer = await promptInput(tab, `<span class="color-yellow">${escapeHtml(label)}</span> <span class="color-gray">[${escapeHtml(fallback)}]</span>&nbsp;`);
       return answer.trim() || fallback;
     };
-    const title = opts.t || await ask(mariowOSI18n.t("terminal.store.ask-title", "Title:"), id);
-    const desc = opts.d || await ask(mariowOSI18n.t("terminal.store.ask-desc", "Description:"), mariowOSI18n.t("terminal.store.default-desc", "An app for mariowOS"));
+    const title = opts.t || await ask(hyadeOSI18n.t("terminal.store.ask-title", "Title:"), id);
+    const desc = opts.d || await ask(hyadeOSI18n.t("terminal.store.ask-desc", "Description:"), hyadeOSI18n.t("terminal.store.default-desc", "An app for hyadeOS"));
     const developer = opts.D || sysUsername;
     const result = await api("/api/store/publish", { id, title, developer, desc, repoUrl: resolved.repoUrl, icon: opts.i || "" });
     globalCatalog = [];
-    printLine(tab, `✔ ${mariowOSI18n.t("terminal.store.published", "{id} added to the local Store catalog.", { id: result.app.id })}`, "color-green");
-    printLine(tab, mariowOSI18n.t("terminal.store.published-hint", "Install it with 'get install {id}' or from the Store app.", { id: result.app.id }), "color-gray");
+    printLine(tab, `✔ ${hyadeOSI18n.t("terminal.store.published", "{id} added to the local Store catalog.", { id: result.app.id })}`, "color-green");
+    printLine(tab, hyadeOSI18n.t("terminal.store.published-hint", "Install it with 'get install {id}' or from the Store app.", { id: result.app.id }), "color-gray");
   }
 
   async function runStore(tab, args) {
@@ -587,29 +587,29 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     if (sub === "publish") return storePublish(tab, args.slice(1));
     if (sub === "list" || sub === "ls") {
       const installed = await installedApps();
-      if (!installed.length) { printLine(tab, mariowOSI18n.t("terminal.store.none", "No apps installed from the Store yet. Try 'store add' or 'get list'.")); return; }
-      printTable(tab, mariowOSI18n.t("terminal.store.installed-title", "Installed Apps:"),
-        [mariowOSI18n.t("terminal.table.package-id", "package ID"), mariowOSI18n.t("terminal.table.title", "title"), mariowOSI18n.t("terminal.table.version", "version"), mariowOSI18n.t("terminal.table.source", "source")],
-        installed.map(app => [app.appId, app.title || "", app.version || "", app.repoUrl || mariowOSI18n.t("terminal.store.system", "system")]));
+      if (!installed.length) { printLine(tab, hyadeOSI18n.t("terminal.store.none", "No apps installed from the Store yet. Try 'store add' or 'get list'.")); return; }
+      printTable(tab, hyadeOSI18n.t("terminal.store.installed-title", "Installed Apps:"),
+        [hyadeOSI18n.t("terminal.table.package-id", "package ID"), hyadeOSI18n.t("terminal.table.title", "title"), hyadeOSI18n.t("terminal.table.version", "version"), hyadeOSI18n.t("terminal.table.source", "source")],
+        installed.map(app => [app.appId, app.title || "", app.version || "", app.repoUrl || hyadeOSI18n.t("terminal.store.system", "system")]));
       return;
     }
     if (sub === "info") {
       const id = args[2];
-      if (!id) throw new Error(mariowOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: "store info <id>" }));
+      if (!id) throw new Error(hyadeOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: "store info <id>" }));
       const [catalog, installed] = await Promise.all([loadCatalog().catch(() => []), installedApps().catch(() => [])]);
       const entry = catalog.find(app => app.id === id);
       const local = installed.find(app => app.appId === id);
       if (!entry && !local) {
         const suggestion = closestMatch(id, catalog.map(app => app.id).concat(installed.map(app => app.appId)));
-        throw new Error(suggestion ? mariowOSI18n.t("terminal.get.not-found-suggest", "package '{pkg}' not found. Did you mean '{suggestion}'?", { pkg: id, suggestion }) : mariowOSI18n.t("terminal.get.not-found", "package '{pkg}' not found", { pkg: id }));
+        throw new Error(suggestion ? hyadeOSI18n.t("terminal.get.not-found-suggest", "package '{pkg}' not found. Did you mean '{suggestion}'?", { pkg: id, suggestion }) : hyadeOSI18n.t("terminal.get.not-found", "package '{pkg}' not found", { pkg: id }));
       }
       const rows = [
-        [mariowOSI18n.t("terminal.store.field.id", "ID"), id],
-        [mariowOSI18n.t("terminal.store.field.title", "Title"), (local && local.title) || (entry && entry.title) || ""],
-        [mariowOSI18n.t("terminal.store.field.developer", "Developer"), (entry && entry.developer) || ""],
-        [mariowOSI18n.t("terminal.store.field.description", "Description"), (entry && entry.desc) || ""],
-        [mariowOSI18n.t("terminal.store.field.source", "Source"), (local && local.repoUrl) || (entry && entry.repoUrl) || ""],
-        [mariowOSI18n.t("terminal.store.field.status", "Status"), local ? `${mariowOSI18n.t("terminal.table.installed", "installed")}${local.version ? ` (${local.version})` : ""}${local.isolated ? ` · ${mariowOSI18n.t("terminal.store.isolated-short", "isolated")}` : ""}` : mariowOSI18n.t("terminal.store.not-installed", "not installed")]
+        [hyadeOSI18n.t("terminal.store.field.id", "ID"), id],
+        [hyadeOSI18n.t("terminal.store.field.title", "Title"), (local && local.title) || (entry && entry.title) || ""],
+        [hyadeOSI18n.t("terminal.store.field.developer", "Developer"), (entry && entry.developer) || ""],
+        [hyadeOSI18n.t("terminal.store.field.description", "Description"), (entry && entry.desc) || ""],
+        [hyadeOSI18n.t("terminal.store.field.source", "Source"), (local && local.repoUrl) || (entry && entry.repoUrl) || ""],
+        [hyadeOSI18n.t("terminal.store.field.status", "Status"), local ? `${hyadeOSI18n.t("terminal.table.installed", "installed")}${local.version ? ` (${local.version})` : ""}${local.isolated ? ` · ${hyadeOSI18n.t("terminal.store.isolated-short", "isolated")}` : ""}` : hyadeOSI18n.t("terminal.store.not-installed", "not installed")]
       ].filter(([, value]) => value);
       if (isCapturing(tab)) rows.forEach(([key, value]) => printLine(tab, `${key}: ${value}`));
       else printHTML(tab, rows.map(([key, value]) => `<span class="color-yellow">${escapeHtml(key.padEnd(12))}</span>${escapeHtml(value)}`).join("\n"));
@@ -617,16 +617,16 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     }
     if (sub === "remove" || sub === "uninstall") {
       const id = args[2];
-      if (!id) throw new Error(mariowOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: "store remove <id>" }));
+      if (!id) throw new Error(hyadeOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: "store remove <id>" }));
       const installed = await installedApps();
-      if (!installed.some(app => app.appId === id)) throw new Error(mariowOSI18n.t("terminal.get.not-installed", "package '{pkg}' is not installed", { pkg: id }));
+      if (!installed.some(app => app.appId === id)) throw new Error(hyadeOSI18n.t("terminal.get.not-installed", "package '{pkg}' is not installed", { pkg: id }));
       await requireAuth(tab);
       return removeInstalledApp(tab, id);
     }
     const suggestion = closestMatch(sub, Object.keys(STORE_SUBCOMMANDS));
     throw new Error(suggestion
-      ? mariowOSI18n.t("terminal.store.invalid-suggest", "unknown command '{sub}'. Did you mean 'store {suggestion}'?", { sub, suggestion })
-      : mariowOSI18n.t("terminal.store.invalid", "unknown command '{sub}'. Use 'store help'.", { sub }));
+      ? hyadeOSI18n.t("terminal.store.invalid-suggest", "unknown command '{sub}'. Did you mean 'store {suggestion}'?", { sub, suggestion })
+      : hyadeOSI18n.t("terminal.store.invalid", "unknown command '{sub}'. Use 'store help'.", { sub }));
   }
 
   // ---------------------------------------------------------- desktop windows
@@ -645,7 +645,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
   // ------------------------------------------------------------------- date
   function formatDate(date, format) {
     const pad = (n, w = 2) => String(n).padStart(w, "0");
-    const locale = mariowOSI18n.locale || undefined;
+    const locale = hyadeOSI18n.locale || undefined;
     const map = {
       Y: date.getFullYear(), y: pad(date.getFullYear() % 100), m: pad(date.getMonth() + 1), d: pad(date.getDate()), e: String(date.getDate()).padStart(2, " "),
       H: pad(date.getHours()), I: pad(date.getHours() % 12 || 12), M: pad(date.getMinutes()), S: pad(date.getSeconds()), p: date.getHours() < 12 ? "AM" : "PM",
@@ -695,11 +695,11 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
 
   // ------------------------------------------------------------------- cal
   function calendarLines(year, month, highlight) {
-    const locale = mariowOSI18n.locale || undefined;
+    const locale = hyadeOSI18n.locale || undefined;
     const first = new Date(year, month, 1);
     const title = first.toLocaleDateString(locale, { month: "long", year: "numeric" });
     const days = new Date(year, month + 1, 0).getDate();
-    // Weeks start on Monday, as in the rest of mariowOS.
+    // Weeks start on Monday, as in the rest of hyadeOS.
     const weekdays = [...Array(7)].map((_, k) => new Date(2024, 0, 1 + k).toLocaleDateString(locale, { weekday: "short" }).slice(0, 2));
     const offset = (first.getDay() + 6) % 7;
     const cells = [...Array(offset).fill("  "), ...[...Array(days)].map((_, k) => String(k + 1).padStart(2))];
@@ -710,25 +710,25 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
 
   // --------------------------------------------------------------- commands
   const BUILTIN_HELP = {
-    sh: ["sh <script> [args...]", mariowOSI18n.t("terminal.cmd.sh", "Run a script (any text file); 'sh -c \"commands\"' runs a line")],
-    source: ["source <file>", mariowOSI18n.t("terminal.cmd.source", "Run a script in this shell, so its variables, aliases and functions stay (also '.')")],
-    export: ["export [NAME=value...]", mariowOSI18n.t("terminal.cmd.export", "Set variables (or list them all)")],
-    unset: ["unset NAME...", mariowOSI18n.t("terminal.cmd.unset", "Remove variables (unset -f removes functions)")],
-    env: ["env", mariowOSI18n.t("terminal.cmd.env", "List the variables")],
-    set: ["set [-e] [-x] [-- args]", mariowOSI18n.t("terminal.cmd.set", "Shell options: -e stops a script at the first error, -x prints each command")],
-    alias: ["alias [name='command']", mariowOSI18n.t("terminal.cmd.alias", "Define or list aliases (put them in ~/.mwshrc to keep them)")],
-    unalias: ["unalias name", mariowOSI18n.t("terminal.cmd.unalias", "Remove an alias")],
-    read: ["read [-p prompt] [-s] NAME...", mariowOSI18n.t("terminal.cmd.read", "Read a line from the user (or from a pipe) into variables; -s hides it")],
-    test: ["test EXPR  /  [ EXPR ]", mariowOSI18n.t("terminal.cmd.test", "Check files (-f -d -e -s), text (= != -z -n) and numbers (-eq -lt -gt...)")],
-    type: ["type NAME", mariowOSI18n.t("terminal.cmd.type", "Tell whether a name is a command, builtin, function, alias or script")],
-    which: ["which NAME", mariowOSI18n.t("terminal.cmd.which", "Show where a command or script comes from")],
-    true: ["true / false", mariowOSI18n.t("terminal.cmd.true", "Do nothing, successfully (true) or not (false)")],
-    shift: ["shift [n]", mariowOSI18n.t("terminal.cmd.shift", "Drop the first script arguments ($1 becomes what $2 was)")],
-    local: ["local NAME=value", mariowOSI18n.t("terminal.cmd.local", "A variable that only exists inside the current function")],
-    return: ["return [status]", mariowOSI18n.t("terminal.cmd.return", "Leave the current function")],
-    break: ["break / continue", mariowOSI18n.t("terminal.cmd.break", "Leave a loop, or go to its next round")],
-    eval: ["eval <text>", mariowOSI18n.t("terminal.cmd.eval", "Run text as a command line")],
-    time: ["time <command>", mariowOSI18n.t("terminal.cmd.time", "Run a command and say how long it took")],
+    sh: ["sh <script> [args...]", hyadeOSI18n.t("terminal.cmd.sh", "Run a script (any text file); 'sh -c \"commands\"' runs a line")],
+    source: ["source <file>", hyadeOSI18n.t("terminal.cmd.source", "Run a script in this shell, so its variables, aliases and functions stay (also '.')")],
+    export: ["export [NAME=value...]", hyadeOSI18n.t("terminal.cmd.export", "Set variables (or list them all)")],
+    unset: ["unset NAME...", hyadeOSI18n.t("terminal.cmd.unset", "Remove variables (unset -f removes functions)")],
+    env: ["env", hyadeOSI18n.t("terminal.cmd.env", "List the variables")],
+    set: ["set [-e] [-x] [-- args]", hyadeOSI18n.t("terminal.cmd.set", "Shell options: -e stops a script at the first error, -x prints each command")],
+    alias: ["alias [name='command']", hyadeOSI18n.t("terminal.cmd.alias", "Define or list aliases (put them in ~/.mwshrc to keep them)")],
+    unalias: ["unalias name", hyadeOSI18n.t("terminal.cmd.unalias", "Remove an alias")],
+    read: ["read [-p prompt] [-s] NAME...", hyadeOSI18n.t("terminal.cmd.read", "Read a line from the user (or from a pipe) into variables; -s hides it")],
+    test: ["test EXPR  /  [ EXPR ]", hyadeOSI18n.t("terminal.cmd.test", "Check files (-f -d -e -s), text (= != -z -n) and numbers (-eq -lt -gt...)")],
+    type: ["type NAME", hyadeOSI18n.t("terminal.cmd.type", "Tell whether a name is a command, builtin, function, alias or script")],
+    which: ["which NAME", hyadeOSI18n.t("terminal.cmd.which", "Show where a command or script comes from")],
+    true: ["true / false", hyadeOSI18n.t("terminal.cmd.true", "Do nothing, successfully (true) or not (false)")],
+    shift: ["shift [n]", hyadeOSI18n.t("terminal.cmd.shift", "Drop the first script arguments ($1 becomes what $2 was)")],
+    local: ["local NAME=value", hyadeOSI18n.t("terminal.cmd.local", "A variable that only exists inside the current function")],
+    return: ["return [status]", hyadeOSI18n.t("terminal.cmd.return", "Leave the current function")],
+    break: ["break / continue", hyadeOSI18n.t("terminal.cmd.break", "Leave a loop, or go to its next round")],
+    eval: ["eval <text>", hyadeOSI18n.t("terminal.cmd.eval", "Run text as a command line")],
+    time: ["time <command>", hyadeOSI18n.t("terminal.cmd.time", "Run a command and say how long it took")],
     xargs: null
   };
   Object.entries(BUILTIN_HELP).forEach(([name, entry]) => {
@@ -741,25 +741,25 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
 
   const NEW_COMMANDS = {
     // --- general
-    date: { group: "General", usage: "date [+FORMAT]", desc: mariowOSI18n.t("terminal.cmd.date", "Show the date and time; +FORMAT like +%Y-%m-%d %H:%M"),
+    date: { group: "General", usage: "date [+FORMAT]", desc: hyadeOSI18n.t("terminal.cmd.date", "Show the date and time; +FORMAT like +%Y-%m-%d %H:%M"),
       run: (tab, args) => {
         if (args[1] && args[1].startsWith("+")) { printLine(tab, formatDate(new Date(), args.slice(1).join(" ").slice(1))); return; }
         if (args.length > 1) throw usageError("date");
         printLine(tab, new Date().toString());
       } },
-    sleep: { group: "General", usage: "sleep <seconds>", desc: mariowOSI18n.t("terminal.cmd.sleep", "Wait (2, 0.5, 1m, 2h); Ctrl+C stops it"),
+    sleep: { group: "General", usage: "sleep <seconds>", desc: hyadeOSI18n.t("terminal.cmd.sleep", "Wait (2, 0.5, 1m, 2h); Ctrl+C stops it"),
       run: async (tab, args) => {
         const match = String(args[1] || "").match(/^(\d+(?:\.\d+)?)([smhd]?)$/);
         if (!match || args.length !== 2) throw usageError("sleep");
         const ms = parseFloat(match[1]) * ({ "": 1, s: 1, m: 60, h: 3600, d: 86400 })[match[2]] * 1000;
         if (!(await pause(tab, ms))) throw new MWShell.Interrupt();
       } },
-    cal: { group: "General", usage: "cal [[month] year]", desc: mariowOSI18n.t("terminal.cmd.cal", "Show a month calendar"),
+    cal: { group: "General", usage: "cal [[month] year]", desc: hyadeOSI18n.t("terminal.cmd.cal", "Show a month calendar"),
       run: (tab, args) => {
         const now = new Date();
         let year = now.getFullYear(), month = now.getMonth();
         if (args.length === 2) { year = toInt(args[1], "cal"); month = -1; }
-        else if (args.length === 3) { month = toInt(args[1], "cal") - 1; year = toInt(args[2], "cal"); if (month < 0 || month > 11) throw new Error(mariowOSI18n.t("terminal.cal.bad-month", "{value} is not a month (1-12)", { value: args[1] })); }
+        else if (args.length === 3) { month = toInt(args[1], "cal") - 1; year = toInt(args[2], "cal"); if (month < 0 || month > 11) throw new Error(hyadeOSI18n.t("terminal.cal.bad-month", "{value} is not a month (1-12)", { value: args[1] })); }
         else if (args.length > 3) throw usageError("cal");
         const months = month === -1 ? [...Array(12).keys()] : [month];
         months.forEach((m, k) => {
@@ -771,8 +771,8 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           printHTML(tab, `<span class="color-blue">${escapeHtml(cal.title)}</span>\n<span class="color-gray">${escapeHtml(cal.header)}</span>\n${rows}`);
         });
       } },
-    uuid: { group: "General", usage: "uuid", desc: mariowOSI18n.t("terminal.cmd.uuid", "Print a new random UUID"), run: tab => printLine(tab, crypto.randomUUID()) },
-    random: { group: "General", usage: "random [max] | random <min> <max>", desc: mariowOSI18n.t("terminal.cmd.random", "Print a random whole number (1-100 by default)"),
+    uuid: { group: "General", usage: "uuid", desc: hyadeOSI18n.t("terminal.cmd.uuid", "Print a new random UUID"), run: tab => printLine(tab, crypto.randomUUID()) },
+    random: { group: "General", usage: "random [max] | random <min> <max>", desc: hyadeOSI18n.t("terminal.cmd.random", "Print a random whole number (1-100 by default)"),
       run: (tab, args) => {
         let min = 1, max = 100;
         if (args.length === 2) max = toInt(args[1], "random");
@@ -784,12 +784,12 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         crypto.getRandomValues(buf);
         printLine(tab, String(min + (buf[0] % range)));
       } },
-    man: { group: "General", usage: "man <command>", desc: mariowOSI18n.t("terminal.cmd.man", "Same as 'help <command>'"),
+    man: { group: "General", usage: "man <command>", desc: hyadeOSI18n.t("terminal.cmd.man", "Same as 'help <command>'"),
       complete: (tab, index) => index === 1 ? commandNames().concat(Object.keys(HELP_TOPICS)) : null,
-      run: (tab, args) => { if (!args[1]) throw new Error(mariowOSI18n.t("terminal.man.which", "What manual page do you want? (e.g. man grep)")); showHelp(tab, args[1]); } },
+      run: (tab, args) => { if (!args[1]) throw new Error(hyadeOSI18n.t("terminal.man.which", "What manual page do you want? (e.g. man grep)")); showHelp(tab, args[1]); } },
 
     // --- files
-    find: { group: "Files", usage: "find [dir] [-name PATTERN] [-iname P] [-type f|d] [-maxdepth N]", desc: mariowOSI18n.t("terminal.cmd.find", "Find files and folders below a folder by name or type"), complete: "dir",
+    find: { group: "Files", usage: "find [dir] [-name PATTERN] [-iname P] [-type f|d] [-maxdepth N]", desc: hyadeOSI18n.t("terminal.cmd.find", "Find files and folders below a folder by name or type"), complete: "dir",
       run: async (tab, args) => {
         const roots = [];
         let k = 1;
@@ -803,7 +803,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           else throw usageError("find");
         }
         for (const root of (roots.length ? roots : ["."])) {
-          if (!(await statPath(normalizeVirtualPath(root, tab.currentDirectory)))) { printError(tab, `find: '${root}': ${mariowOSI18n.t("terminal.error.no-such-file-short", "No such file or directory")}`); continue; }
+          if (!(await statPath(normalizeVirtualPath(root, tab.currentDirectory)))) { printError(tab, `find: '${root}': ${hyadeOSI18n.t("terminal.error.no-such-file-short", "No such file or directory")}`); continue; }
           if (!name && type !== "f") printLine(tab, root);
           await walk(tab, root, async (item, virtualPath, shown) => {
             if (type === "f" && item.type === "folder") return;
@@ -813,7 +813,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           }, { maxDepth });
         }
       } },
-    tree: { group: "Files", usage: "tree [dir] [-L depth] [-a]", desc: mariowOSI18n.t("terminal.cmd.tree", "Show folders and files as a tree"), complete: "dir",
+    tree: { group: "Files", usage: "tree [dir] [-L depth] [-a]", desc: hyadeOSI18n.t("terminal.cmd.tree", "Show folders and files as a tree"), complete: "dir",
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "ad", values: "L" });
         if (rest.length > 1) throw usageError("tree");
@@ -829,7 +829,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           const data = await getDirectoryContents(virtualPath);
           const items = data.contents.filter(item => (opts.a || !item.name.startsWith(".")) && (!opts.d || item.type === "folder")).sort((a, b) => a.name.localeCompare(b.name));
           for (let i = 0; i < items.length; i++) {
-            if (++count > 5000) throw new Error(mariowOSI18n.t("terminal.error.too-many-files", "stopped after {limit} entries", { limit: 5000 }));
+            if (++count > 5000) throw new Error(hyadeOSI18n.t("terminal.error.too-many-files", "stopped after {limit} entries", { limit: 5000 }));
             const item = items[i];
             const last = i === items.length - 1;
             const name = item.type === "folder" ? (capture ? item.name : `<span class="color-blue">${escapeHtml(item.name)}</span>`) : (capture ? item.name : escapeHtml(item.name));
@@ -841,47 +841,47 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           }
         };
         await go(rootPath, "", 0);
-        const summary = mariowOSI18n.t("terminal.tree.summary", "{folders} directories, {files} files", { folders, files });
+        const summary = hyadeOSI18n.t("terminal.tree.summary", "{folders} directories, {files} files", { folders, files });
         if (capture) { lines.forEach(line => printLine(tab, line)); printLine(tab, ""); printLine(tab, summary); }
         else printHTML(tab, `${lines.join("\n")}\n\n<span class="color-gray">${escapeHtml(summary)}</span>`);
       } },
-    stat: { group: "Files", usage: "stat <path>", desc: mariowOSI18n.t("terminal.cmd.stat", "Show the type, size and date of a file or folder"), complete: "any",
+    stat: { group: "Files", usage: "stat <path>", desc: hyadeOSI18n.t("terminal.cmd.stat", "Show the type, size and date of a file or folder"), complete: "any",
       run: async (tab, args) => {
         if (args.length < 2) throw usageError("stat");
         let status = 0;
         for (const target of args.slice(1)) {
           const virtualPath = normalizeVirtualPath(target, tab.currentDirectory);
           const info = await statPath(virtualPath);
-          if (!info) { printError(tab, `stat: ${target}: ${mariowOSI18n.t("terminal.error.no-such-file-short", "No such file or directory")}`); status = 1; continue; }
+          if (!info) { printError(tab, `stat: ${target}: ${hyadeOSI18n.t("terminal.error.no-such-file-short", "No such file or directory")}`); status = 1; continue; }
           const rows = [["File", virtualPath], ["Type", info.type === "folder" ? "directory" : `file${info.ext ? ` (${info.ext})` : ""}`]];
           if (info.type !== "folder") rows.push(["Size", `${info.bytes >= 0 ? info.bytes : "--"} bytes${info.bytes >= 1024 ? ` (${formatBytes(info.bytes)})` : ""}`]);
-          if (info.mtime) rows.push(["Modified", new Date(info.mtime).toLocaleString(mariowOSI18n.locale)]);
+          if (info.mtime) rows.push(["Modified", new Date(info.mtime).toLocaleString(hyadeOSI18n.locale)]);
           else if (info.date) rows.push(["Modified", info.date]);
           rows.push(["Executable", /\.mwex$/i.test(virtualPath) ? "yes (.mwex)" : "no"]);
           emit(tab, rows.map(([key, value]) => `${key.padEnd(11)}${value}`));
         }
         return status;
       } },
-    basename: { group: "Files", usage: "basename <path> [suffix]", desc: mariowOSI18n.t("terminal.cmd.basename", "Print the last part of a path (without the suffix)"),
+    basename: { group: "Files", usage: "basename <path> [suffix]", desc: hyadeOSI18n.t("terminal.cmd.basename", "Print the last part of a path (without the suffix)"),
       run: (tab, args) => {
         if (args.length < 2 || args.length > 3) throw usageError("basename");
         let base = args[1].replace(/\/+$/, "").split("/").pop() || "/";
         if (args[2] && base !== args[2] && base.endsWith(args[2])) base = base.slice(0, -args[2].length);
         printLine(tab, base);
       } },
-    dirname: { group: "Files", usage: "dirname <path>", desc: mariowOSI18n.t("terminal.cmd.dirname", "Print a path without its last part"),
+    dirname: { group: "Files", usage: "dirname <path>", desc: hyadeOSI18n.t("terminal.cmd.dirname", "Print a path without its last part"),
       run: (tab, args) => {
         if (args.length !== 2) throw usageError("dirname");
         const trimmed = args[1].replace(/\/+$/, "");
         const slash = trimmed.lastIndexOf("/");
         printLine(tab, slash < 0 ? "." : slash === 0 ? "/" : trimmed.slice(0, slash));
       } },
-    realpath: { group: "Files", usage: "realpath <path>", desc: mariowOSI18n.t("terminal.cmd.realpath", "Print the full path"), complete: "any",
+    realpath: { group: "Files", usage: "realpath <path>", desc: hyadeOSI18n.t("terminal.cmd.realpath", "Print the full path"), complete: "any",
       run: (tab, args) => { if (args.length < 2) throw usageError("realpath"); args.slice(1).forEach(p => printLine(tab, normalizeVirtualPath(p, tab.currentDirectory))); } },
 
     // --- text
-    grep: { group: "Text", usage: "grep [-ivnclowqFEr] <pattern> [file...]", desc: mariowOSI18n.t("terminal.cmd.grep", "Print the lines that match a pattern (-i any case, -v the others, -n line numbers, -c count, -r in folders)"), complete: "any",
-      details: mariowOSI18n.t("terminal.cmd.grep-details", "  -i  ignore case        -v  lines that do NOT match   -n  line numbers\n  -c  count only         -l  only file names           -o  only the matching part\n  -w  whole words        -F  plain text, not a pattern -E  extended regex (| + ? ())\n  -r  search the files in folders (default: the current one)\n  -q  quiet: no output, only the exit status (for if and &&)\nExit status: 0 when something matched, 1 when nothing did."),
+    grep: { group: "Text", usage: "grep [-ivnclowqFEr] <pattern> [file...]", desc: hyadeOSI18n.t("terminal.cmd.grep", "Print the lines that match a pattern (-i any case, -v the others, -n line numbers, -c count, -r in folders)"), complete: "any",
+      details: hyadeOSI18n.t("terminal.cmd.grep-details", "  -i  ignore case        -v  lines that do NOT match   -n  line numbers\n  -c  count only         -l  only file names           -o  only the matching part\n  -w  whole words        -F  plain text, not a pattern -E  extended regex (| + ? ())\n  -r  search the files in folders (default: the current one)\n  -q  quiet: no output, only the exit status (for if and &&)\nExit status: 0 when something matched, 1 when nothing did."),
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "ivnclowFErRhHsq", values: "e", long: { quiet: "q", silent: "q", "ignore-case": "i", "invert-match": "v", "line-number": "n", count: "c", "files-with-matches": "l", "only-matching": "o", "word-regexp": "w", "fixed-strings": "F", "extended-regexp": "E", recursive: "r", regexp: "e" } });
         const pattern = opts.e !== undefined ? list(opts.e).join("|") : rest.shift();
@@ -895,7 +895,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         if (recursive) {
           for (const root of (rest.length ? rest : ["."])) {
             const info = await statPath(normalizeVirtualPath(root, tab.currentDirectory));
-            if (!info) { if (!opts.s) printError(tab, `grep: ${root}: ${mariowOSI18n.t("terminal.error.no-such-file-short", "No such file or directory")}`); failed = true; continue; }
+            if (!info) { if (!opts.s) printError(tab, `grep: ${root}: ${hyadeOSI18n.t("terminal.error.no-such-file-short", "No such file or directory")}`); failed = true; continue; }
             if (info.type !== "folder") { inputs.push({ name: root }); continue; }
             await walk(tab, root, async (item, virtualPath, shown) => { if (item.type !== "folder" && item.bytes <= 2 * 1048576) inputs.push({ name: shown, path: virtualPath }); });
           }
@@ -948,7 +948,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         }
         return status === 0 ? 0 : failed ? 2 : 1;
       } },
-    head: { group: "Text", usage: "head [-n N] [file...]", desc: mariowOSI18n.t("terminal.cmd.head", "Print the first lines (10 by default)"), complete: "any",
+    head: { group: "Text", usage: "head [-n N] [file...]", desc: hyadeOSI18n.t("terminal.cmd.head", "Print the first lines (10 by default)"), complete: "any",
       run: async (tab, args) => {
         const normalized = args.map(a => /^-\d+$/.test(a) ? `-n${a.slice(1)}` : a);
         const { opts, rest } = getopt(normalized, { flags: "qv", values: "nc", long: { lines: "n", bytes: "c" } });
@@ -962,7 +962,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           emit(tab, n >= 0 ? lines.slice(0, n) : lines.slice(0, n));
         }
       } },
-    tail: { group: "Text", usage: "tail [-n N|+N] [file...]", desc: mariowOSI18n.t("terminal.cmd.tail", "Print the last lines (10 by default); -n +N starts at line N"), complete: "any",
+    tail: { group: "Text", usage: "tail [-n N|+N] [file...]", desc: hyadeOSI18n.t("terminal.cmd.tail", "Print the last lines (10 by default); -n +N starts at line N"), complete: "any",
       run: async (tab, args) => {
         const normalized = args.map(a => /^-\d+$/.test(a) ? `-n${a.slice(1)}` : a);
         const { opts, rest } = getopt(normalized, { flags: "qv", values: "nc", long: { lines: "n", bytes: "c" } });
@@ -976,7 +976,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           emit(tab, spec.startsWith("+") ? lines.slice(toInt(spec.slice(1), "tail") - 1) : lines.slice(Math.max(0, lines.length - Math.abs(toInt(spec, "tail")))));
         }
       } },
-    wc: { group: "Text", usage: "wc [-l] [-w] [-c] [file...]", desc: mariowOSI18n.t("terminal.cmd.wc", "Count lines, words and characters"), complete: "any",
+    wc: { group: "Text", usage: "wc [-l] [-w] [-c] [file...]", desc: hyadeOSI18n.t("terminal.cmd.wc", "Count lines, words and characters"), complete: "any",
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "lwcm", long: { lines: "l", words: "w", chars: "m", bytes: "c" } });
         const show = opts.l || opts.w || opts.c || opts.m ? opts : { l: true, w: true, c: true };
@@ -991,7 +991,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         }
         if (files.length > 1) printLine(tab, row(total, "total"));
       } },
-    sort: { group: "Text", usage: "sort [-r] [-n] [-u] [-f] [-k N] [-t SEP] [file...]", desc: mariowOSI18n.t("terminal.cmd.sort", "Sort lines (-r reverse, -n by number, -u unique, -k by column)"), complete: "any",
+    sort: { group: "Text", usage: "sort [-r] [-n] [-u] [-f] [-k N] [-t SEP] [file...]", desc: hyadeOSI18n.t("terminal.cmd.sort", "Sort lines (-r reverse, -n by number, -u unique, -k by column)"), complete: "any",
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "rnufhV", values: "kto", long: { reverse: "r", "numeric-sort": "n", unique: "u", "ignore-case": "f", key: "k", "field-separator": "t", output: "o" } });
         let lines = textLines(await inputText(tab, rest, "sort"));
@@ -1001,7 +1001,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           const fields = opts.t !== undefined ? line.split(opts.t) : line.trim().split(/\s+/);
           return fields.slice(column - 1).join(opts.t !== undefined ? opts.t : " ");
         };
-        const collator = new Intl.Collator(mariowOSI18n.locale || undefined, { sensitivity: opts.f ? "base" : "variant", numeric: !!opts.V });
+        const collator = new Intl.Collator(hyadeOSI18n.locale || undefined, { sensitivity: opts.f ? "base" : "variant", numeric: !!opts.V });
         lines.sort((a, b) => {
           const ka = keyOf(a), kb = keyOf(b);
           if (opts.n || opts.h) {
@@ -1015,7 +1015,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         if (opts.o) { await writeHomeFile(tab, opts.o, lines.length ? lines.join("\n") + "\n" : ""); return; }
         emit(tab, lines);
       } },
-    uniq: { group: "Text", usage: "uniq [-c] [-d] [-u] [-i] [file]", desc: mariowOSI18n.t("terminal.cmd.uniq", "Drop repeated neighbouring lines (-c counts them; sort first)"), complete: "any",
+    uniq: { group: "Text", usage: "uniq [-c] [-d] [-u] [-i] [file]", desc: hyadeOSI18n.t("terminal.cmd.uniq", "Drop repeated neighbouring lines (-c counts them; sort first)"), complete: "any",
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "cdui", long: { count: "c", repeated: "d", unique: "u", "ignore-case": "i" } });
         const lines = textLines(await inputText(tab, rest, "uniq"));
@@ -1027,7 +1027,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         });
         emit(tab, groups.filter(g => (!opts.d || g.count > 1) && (!opts.u || g.count === 1)).map(g => opts.c ? `${String(g.count).padStart(7)} ${g.line}` : g.line));
       } },
-    cut: { group: "Text", usage: "cut -d SEP -f LIST | -c LIST [file]", desc: mariowOSI18n.t("terminal.cmd.cut", "Keep some columns (-f 1,3 or 2-4, split by -d) or characters (-c)"), complete: "any",
+    cut: { group: "Text", usage: "cut -d SEP -f LIST | -c LIST [file]", desc: hyadeOSI18n.t("terminal.cmd.cut", "Keep some columns (-f 1,3 or 2-4, split by -d) or characters (-c)"), complete: "any",
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "s", values: "dfc", long: { delimiter: "d", fields: "f", characters: "c" } });
         if (!opts.f && !opts.c) throw usageError("cut");
@@ -1046,7 +1046,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           return [line.split(delimiter).filter((field, k) => keep(k + 1)).join(delimiter)];
         }));
       } },
-    tr: { group: "Text", usage: "tr [-d] [-s] SET1 [SET2]", desc: mariowOSI18n.t("terminal.cmd.tr", "Replace or delete characters: tr a-z A-Z, tr -d '0-9'"),
+    tr: { group: "Text", usage: "tr [-d] [-s] SET1 [SET2]", desc: hyadeOSI18n.t("terminal.cmd.tr", "Replace or delete characters: tr a-z A-Z, tr -d '0-9'"),
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "dsc", long: { delete: "d", "squeeze-repeats": "s" } });
         if (!rest.length || rest.length > 2 || (!opts.d && !opts.s && rest.length !== 2)) throw usageError("tr");
@@ -1068,7 +1068,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         const set2 = rest[1] !== undefined ? expand(rest[1]) : [];
         const inSet1 = new Set(set1);
         let text = readStdin(tab);
-        if (text === null) throw new Error(mariowOSI18n.t("terminal.tr.stdin", "tr reads what is piped into it, e.g. echo hello | tr a-z A-Z"));
+        if (text === null) throw new Error(hyadeOSI18n.t("terminal.tr.stdin", "tr reads what is piped into it, e.g. echo hello | tr a-z A-Z"));
         let out = "";
         let previous = null;
         for (const ch of text) {
@@ -1081,25 +1081,25 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         }
         printText(tab, out);
       } },
-    rev: { group: "Text", usage: "rev [file...]", desc: mariowOSI18n.t("terminal.cmd.rev", "Reverse each line"), complete: "any",
+    rev: { group: "Text", usage: "rev [file...]", desc: hyadeOSI18n.t("terminal.cmd.rev", "Reverse each line"), complete: "any",
       run: async (tab, args) => emit(tab, textLines(await inputText(tab, args.slice(1), "rev")).map(line => [...line].reverse().join(""))) },
-    tee: { group: "Text", usage: "tee [-a] <file...>", desc: mariowOSI18n.t("terminal.cmd.tee", "Copy what is piped in to files and to the output (-a appends)"), complete: "any",
+    tee: { group: "Text", usage: "tee [-a] <file...>", desc: hyadeOSI18n.t("terminal.cmd.tee", "Copy what is piped in to files and to the output (-a appends)"), complete: "any",
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "a", long: { append: "a" } });
         const text = readStdin(tab) || "";
         for (const file of rest) await writeHomeFile(tab, file, text, !!opts.a);
         printText(tab, text);
       } },
-    seq: { group: "Text", usage: "seq [first [step]] last", desc: mariowOSI18n.t("terminal.cmd.seq", "Print a sequence of numbers"),
+    seq: { group: "Text", usage: "seq [first [step]] last", desc: hyadeOSI18n.t("terminal.cmd.seq", "Print a sequence of numbers"),
       run: (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "w", values: "s", long: { separator: "s" } });
         const nums = rest.map(v => { const n = Number(v); if (!Number.isFinite(n)) throw usageError("seq"); return n; });
         if (!nums.length || nums.length > 3) throw usageError("seq");
         const [first, step, last] = nums.length === 1 ? [1, 1, nums[0]] : nums.length === 2 ? [nums[0], 1, nums[1]] : nums;
-        if (step === 0) throw new Error(mariowOSI18n.t("terminal.seq.zero", "the step cannot be 0"));
+        if (step === 0) throw new Error(hyadeOSI18n.t("terminal.seq.zero", "the step cannot be 0"));
         const values = [];
         for (let v = first; step > 0 ? v <= last + 1e-9 : v >= last - 1e-9; v += step) {
-          if (values.length >= 100000) throw new Error(mariowOSI18n.t("terminal.seq.too-long", "too many numbers (100000 at most)"));
+          if (values.length >= 100000) throw new Error(hyadeOSI18n.t("terminal.seq.too-long", "too many numbers (100000 at most)"));
           values.push(Number.isInteger(step) && Number.isInteger(first) ? String(Math.round(v)) : String(+v.toFixed(10)));
         }
         const width = opts.w ? Math.max(...values.map(v => v.length)) : 0;
@@ -1107,15 +1107,15 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         if (opts.s !== undefined) printLine(tab, formatted.join(unescapeText(opts.s)));
         else emit(tab, formatted);
       } },
-    sed: { group: "Text", usage: "sed [-n] [-E] [-i] 'SCRIPT' [file]", desc: mariowOSI18n.t("terminal.cmd.sed", "Edit text as it flows: sed 's/old/new/g', sed '/pattern/d', sed -n '2,5p'"), complete: "any",
-      details: mariowOSI18n.t("terminal.cmd.sed-details", "Commands (separate several with ; or repeat -e):\n  s/RE/TEXT/[g][i][N][p]  replace (& is the match, \\1..\\9 the groups)\n  d   delete the line        p   print it (with -n only printed lines are shown)\n  q   stop after the line\nAddresses: 3, $, /RE/, 2,5 or /start/,/end/ before a command; ! negates them.\n  -i edits the file in place, -E uses extended regular expressions."),
+    sed: { group: "Text", usage: "sed [-n] [-E] [-i] 'SCRIPT' [file]", desc: hyadeOSI18n.t("terminal.cmd.sed", "Edit text as it flows: sed 's/old/new/g', sed '/pattern/d', sed -n '2,5p'"), complete: "any",
+      details: hyadeOSI18n.t("terminal.cmd.sed-details", "Commands (separate several with ; or repeat -e):\n  s/RE/TEXT/[g][i][N][p]  replace (& is the match, \\1..\\9 the groups)\n  d   delete the line        p   print it (with -n only printed lines are shown)\n  q   stop after the line\nAddresses: 3, $, /RE/, 2,5 or /start/,/end/ before a command; ! negates them.\n  -i edits the file in place, -E uses extended regular expressions."),
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "nEri", values: "e", long: { quiet: "n", silent: "n", "regexp-extended": "E", "in-place": "i", expression: "e" } });
         const extended = opts.E || opts.r;
         const script = opts.e !== undefined ? list(opts.e).join(";") : rest.shift();
         if (script === undefined) throw usageError("sed");
         const commands = parseSed(script, extended);
-        if (opts.i && !rest.length) throw new Error(mariowOSI18n.t("terminal.sed.in-place-file", "-i needs a file to edit"));
+        if (opts.i && !rest.length) throw new Error(hyadeOSI18n.t("terminal.sed.in-place-file", "-i needs a file to edit"));
         const files = opts.i ? rest : [null];
         for (const file of files) {
           const text = file ? await readHomeFile(tab, file) : await inputText(tab, rest, "sed");
@@ -1150,14 +1150,14 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           else emit(tab, out.length ? out.join("\n").split("\n") : []);
         }
       } },
-    base64: { group: "Text", usage: "base64 [-d] [file]", desc: mariowOSI18n.t("terminal.cmd.base64", "Encode to base64, or decode with -d"), complete: "any",
+    base64: { group: "Text", usage: "base64 [-d] [file]", desc: hyadeOSI18n.t("terminal.cmd.base64", "Encode to base64, or decode with -d"), complete: "any",
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "dw", long: { decode: "d" } });
         const text = await inputText(tab, rest, "base64");
         if (opts.d) {
           let bytes;
           try { bytes = Uint8Array.from(atob(text.replace(/\s+/g, "")), c => c.charCodeAt(0)); }
-          catch (error) { throw new Error(mariowOSI18n.t("terminal.base64.invalid", "invalid input")); }
+          catch (error) { throw new Error(hyadeOSI18n.t("terminal.base64.invalid", "invalid input")); }
           printText(tab, new TextDecoder().decode(bytes));
           return;
         }
@@ -1166,17 +1166,17 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         const encoded = btoa(binary);
         emit(tab, encoded.match(/.{1,76}/g) || [""]);
       } },
-    sha256sum: { group: "Text", usage: "sha256sum [file...]", desc: mariowOSI18n.t("terminal.cmd.sha256sum", "Print the SHA-256 checksum (also sha1sum, sha512sum)"), complete: "any",
+    sha256sum: { group: "Text", usage: "sha256sum [file...]", desc: hyadeOSI18n.t("terminal.cmd.sha256sum", "Print the SHA-256 checksum (also sha1sum, sha512sum)"), complete: "any",
       run: (tab, args) => hashCommand(tab, args, "SHA-256") },
     sha1sum: { group: "Text", usage: "sha1sum [file...]", desc: "", hidden: true, complete: "any", run: (tab, args) => hashCommand(tab, args, "SHA-1") },
     sha512sum: { group: "Text", usage: "sha512sum [file...]", desc: "", hidden: true, complete: "any", run: (tab, args) => hashCommand(tab, args, "SHA-512") },
-    json: { group: "Text", usage: "json [-c] [-r] [.path] [file]", desc: mariowOSI18n.t("terminal.cmd.json", "Pretty-print JSON, or pick a value: curl -s URL | json .items[0].name"), complete: "any",
+    json: { group: "Text", usage: "json [-c] [-r] [.path] [file]", desc: hyadeOSI18n.t("terminal.cmd.json", "Pretty-print JSON, or pick a value: curl -s URL | json .items[0].name"), complete: "any",
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "crk", long: { compact: "c", raw: "r", keys: "k" } });
         const query = rest[0] && rest[0].startsWith(".") ? rest.shift() : ".";
         const text = await inputText(tab, rest, "json");
         let value;
-        try { value = JSON.parse(text); } catch (error) { throw new Error(mariowOSI18n.t("terminal.json.invalid", "not valid JSON: {error}", { error: error.message })); }
+        try { value = JSON.parse(text); } catch (error) { throw new Error(hyadeOSI18n.t("terminal.json.invalid", "not valid JSON: {error}", { error: error.message })); }
         const steps = query.replace(/^\./, "").match(/[^.[\]]+|\[\d+\]|\[\]/g) || [];
         let results = [value];
         for (const step of steps) {
@@ -1195,7 +1195,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         });
         emit(tab, lines);
       } },
-    printf: { group: "Text", usage: "printf FORMAT [args...]", desc: mariowOSI18n.t("terminal.cmd.printf", "Print formatted text: printf '%-10s %5.2f\\n' name 3.14159"),
+    printf: { group: "Text", usage: "printf FORMAT [args...]", desc: hyadeOSI18n.t("terminal.cmd.printf", "Print formatted text: printf '%-10s %5.2f\\n' name 3.14159"),
       run: (tab, args) => {
         if (args.length < 2) throw usageError("printf");
         const text = formatPrintf(args[1], args.slice(2));
@@ -1205,7 +1205,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         emit(tab, lines);
         if (open && isCapturing(tab)) tab.io.noNewline = true;
       } },
-    xargs: { group: "Shell", usage: "xargs [-n N] [-I {}] <command> [args...]", desc: mariowOSI18n.t("terminal.cmd.xargs", "Run a command with the words piped in as its arguments: ls *.txt | xargs rm"),
+    xargs: { group: "Shell", usage: "xargs [-n N] [-I {}] <command> [args...]", desc: hyadeOSI18n.t("terminal.cmd.xargs", "Run a command with the words piped in as its arguments: ls *.txt | xargs rm"),
       run: async (tab, args) => {
         let k = 1, per = Infinity, placeholder = null;
         for (; k < args.length && args[k].startsWith("-"); k++) {
@@ -1216,7 +1216,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         const command = args.slice(k);
         if (!command.length) command.push("echo");
         const input = readStdin(tab);
-        if (input === null) throw new Error(mariowOSI18n.t("terminal.xargs.stdin", "xargs reads what is piped into it, e.g. ls | xargs echo"));
+        if (input === null) throw new Error(hyadeOSI18n.t("terminal.xargs.stdin", "xargs reads what is piped into it, e.g. ls | xargs echo"));
         const items = placeholder ? textLines(input) : (input.match(/"[^"]*"|'[^']*'|\S+/g) || []).map(w => w.replace(/^(["'])(.*)\1$/, "$2"));
         const frame = { ...tab.io, stdin: null };
         let status = 0;
@@ -1232,24 +1232,24 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       } },
 
     // --- network
-    curl: { group: "Network", usage: CURL_HELP, desc: mariowOSI18n.t("terminal.cmd.curl", "Transfer data from or to a URL (-X method, -H header, -d data, -o file, -L follow, -i headers)"),
-      details: mariowOSI18n.t("terminal.cmd.curl-details", "  -X, --request METHOD    GET, POST, PUT, DELETE...\n  -H, --header 'K: V'      add a request header (repeatable)\n  -d, --data DATA          send data (POST); -d @file reads it from a file\n      --json DATA          send JSON\n  -G, --get                put the -d data in the URL instead\n  -u, --user user:pass     basic authentication\n  -A, --user-agent UA      -e, --referer URL     -b, --cookie 'a=b'\n  -i, --include            print the response headers too\n  -I, --head               headers only (HEAD request)\n  -L, --location           follow redirects\n  -o, --output FILE        save to a file in your home     -O  name it after the URL\n  -f, --fail               no output and exit status 22 on HTTP errors\n  -s, --silent  -S, --show-error   -v, --verbose   -m, --max-time SECONDS\n  -w, --write-out FORMAT   e.g. -w '%{http_code}\\n' (also %{size_download} %{time_total} %{url_effective} %{content_type})"),
+    curl: { group: "Network", usage: CURL_HELP, desc: hyadeOSI18n.t("terminal.cmd.curl", "Transfer data from or to a URL (-X method, -H header, -d data, -o file, -L follow, -i headers)"),
+      details: hyadeOSI18n.t("terminal.cmd.curl-details", "  -X, --request METHOD    GET, POST, PUT, DELETE...\n  -H, --header 'K: V'      add a request header (repeatable)\n  -d, --data DATA          send data (POST); -d @file reads it from a file\n      --json DATA          send JSON\n  -G, --get                put the -d data in the URL instead\n  -u, --user user:pass     basic authentication\n  -A, --user-agent UA      -e, --referer URL     -b, --cookie 'a=b'\n  -i, --include            print the response headers too\n  -I, --head               headers only (HEAD request)\n  -L, --location           follow redirects\n  -o, --output FILE        save to a file in your home     -O  name it after the URL\n  -f, --fail               no output and exit status 22 on HTTP errors\n  -s, --silent  -S, --show-error   -v, --verbose   -m, --max-time SECONDS\n  -w, --write-out FORMAT   e.g. -w '%{http_code}\\n' (also %{size_download} %{time_total} %{url_effective} %{content_type})"),
       run: (tab, args) => runCurl(tab, args) },
-    wget: { group: "Network", usage: "wget [-O file] [-q] <url>", desc: mariowOSI18n.t("terminal.cmd.wget", "Download a file into the current folder"),
+    wget: { group: "Network", usage: "wget [-O file] [-q] <url>", desc: hyadeOSI18n.t("terminal.cmd.wget", "Download a file into the current folder"),
       run: (tab, args) => runWget(tab, args) },
-    telnet: { group: "Network", usage: "telnet <host> [port]", desc: mariowOSI18n.t("terminal.cmd.telnet", "Open an interactive text connection (port 23 by default); Ctrl+] closes it"),
+    telnet: { group: "Network", usage: "telnet <host> [port]", desc: hyadeOSI18n.t("terminal.cmd.telnet", "Open an interactive text connection (port 23 by default); Ctrl+] closes it"),
       run: (tab, args) => {
         if (args.length < 2 || args.length > 3) throw usageError("telnet");
         const port = args[2] ? toInt(args[2], "telnet") : 23;
         return runSocket(tab, args[1], port, false);
       } },
-    nc: { group: "Network", usage: "nc [-w secs] <host> <port>", desc: mariowOSI18n.t("terminal.cmd.nc", "Raw TCP connection (netcat): type to send, or pipe text into it"),
+    nc: { group: "Network", usage: "nc [-w secs] <host> <port>", desc: hyadeOSI18n.t("terminal.cmd.nc", "Raw TCP connection (netcat): type to send, or pipe text into it"),
       run: (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "v", values: "w" });
         if (rest.length !== 2) throw usageError("nc");
         return runSocket(tab, rest[0], toInt(rest[1], "nc"), true, { wait: opts.w ? Math.max(1, toInt(opts.w, "nc")) : 3 });
       } },
-    ping: { group: "Network", usage: "ping [-c count] [-t] <host>", desc: mariowOSI18n.t("terminal.cmd.ping", "Check that a host answers, and how fast (-t until Ctrl+C)"),
+    ping: { group: "Network", usage: "ping [-c count] [-t] <host>", desc: hyadeOSI18n.t("terminal.cmd.ping", "Check that a host answers, and how fast (-t until Ctrl+C)"),
       run: async (tab, args) => {
         const { opts, rest } = getopt(args, { flags: "t46", values: "cnW" });
         if (rest.length !== 1) throw usageError("ping");
@@ -1266,21 +1266,21 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           sent++;
           if (reply.alive) {
             times.push(reply.time);
-            printLine(tab, `${mariowOSI18n.t("terminal.ping.reply", "reply from {address}", { address: reply.address })}: icmp_seq=${seq}${reply.ttl ? ` ttl=${reply.ttl}` : ""} time=${reply.time} ms`);
+            printLine(tab, `${hyadeOSI18n.t("terminal.ping.reply", "reply from {address}", { address: reply.address })}: icmp_seq=${seq}${reply.ttl ? ` ttl=${reply.ttl}` : ""} time=${reply.time} ms`);
           } else {
-            printLine(tab, mariowOSI18n.t("terminal.ping.timeout", "Request timeout for icmp_seq {seq}", { seq }), "color-yellow");
+            printLine(tab, hyadeOSI18n.t("terminal.ping.timeout", "Request timeout for icmp_seq {seq}", { seq }), "color-yellow");
           }
           if (seq < count && !(await pause(tab, 1000))) break;
         }
         if (!sent) return 2;
         const loss = Math.round((1 - times.length / sent) * 100);
         printLine(tab, "");
-        printLine(tab, `--- ${host} ${mariowOSI18n.t("terminal.ping.stats", "ping statistics")} ---`);
-        printLine(tab, mariowOSI18n.t("terminal.ping.summary", "{sent} packets transmitted, {received} received, {loss}% packet loss", { sent, received: times.length, loss }));
+        printLine(tab, `--- ${host} ${hyadeOSI18n.t("terminal.ping.stats", "ping statistics")} ---`);
+        printLine(tab, hyadeOSI18n.t("terminal.ping.summary", "{sent} packets transmitted, {received} received, {loss}% packet loss", { sent, received: times.length, loss }));
         if (times.length) printLine(tab, `rtt min/avg/max = ${Math.min(...times)}/${(times.reduce((a, b) => a + b, 0) / times.length).toFixed(1)}/${Math.max(...times)} ms`);
         return times.length ? 0 : 1;
       } },
-    nslookup: { group: "Network", usage: "nslookup <name> [type]", desc: mariowOSI18n.t("terminal.cmd.nslookup", "Look up the addresses (or MX, TXT, NS... records) of a name"),
+    nslookup: { group: "Network", usage: "nslookup <name> [type]", desc: hyadeOSI18n.t("terminal.cmd.nslookup", "Look up the addresses (or MX, TXT, NS... records) of a name"),
       run: async (tab, args) => {
         if (args.length < 2 || args.length > 3) throw usageError("nslookup");
         const data = await api(`/api/terminal/dns?name=${encodeURIComponent(args[1])}&type=${encodeURIComponent(args[2] || "")}`);
@@ -1292,7 +1292,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         });
         emit(tab, lines);
       } },
-    dig: { group: "Network", usage: "dig <name> [type]", desc: mariowOSI18n.t("terminal.cmd.dig", "DNS records in dig's one-line format"),
+    dig: { group: "Network", usage: "dig <name> [type]", desc: hyadeOSI18n.t("terminal.cmd.dig", "DNS records in dig's one-line format"),
       run: async (tab, args) => {
         const rest = args.slice(1).filter(a => !a.startsWith("+"));
         if (!rest.length || rest.length > 2) throw usageError("dig");
@@ -1301,7 +1301,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         const data = await api(`/api/terminal/dns?name=${encodeURIComponent(name)}&type=${encodeURIComponent(type)}`);
         emit(tab, data.records.map(record => `${data.name}.\tIN\t${record.type}\t${recordValue(record)}`));
       } },
-    ifconfig: { group: "Network", usage: "ifconfig  (or: ip a)", desc: mariowOSI18n.t("terminal.cmd.ifconfig", "Show the network interfaces and their addresses"),
+    ifconfig: { group: "Network", usage: "ifconfig  (or: ip a)", desc: hyadeOSI18n.t("terminal.cmd.ifconfig", "Show the network interfaces and their addresses"),
       run: async tab => {
         const data = await api("/api/terminal/netinfo");
         const lines = [];
@@ -1315,11 +1315,11 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         emit(tab, lines);
       } },
     ip: { group: "Network", usage: "ip a", desc: "", hidden: true, run: (tab, args) => { if (args[1] && !/^(a|addr|address)$/.test(args[1])) throw usageError("ip"); return COMMANDS.ifconfig.run(tab, args); } },
-    hostname: { group: "Network", usage: "hostname", desc: mariowOSI18n.t("terminal.cmd.hostname", "Print the name of this computer"),
+    hostname: { group: "Network", usage: "hostname", desc: hyadeOSI18n.t("terminal.cmd.hostname", "Print the name of this computer"),
       run: async tab => printLine(tab, (await api("/api/terminal/netinfo")).hostname) },
 
     // --- system
-    store: { group: "System", usage: "store <command> [args]", desc: mariowOSI18n.t("terminal.cmd.store", "Store from the terminal: add apps from GitHub or your home, publish, list, info, remove"),
+    store: { group: "System", usage: "store <command> [args]", desc: hyadeOSI18n.t("terminal.cmd.store", "Store from the terminal: add apps from GitHub or your home, publish, list, info, remove"),
       complete: async (tab, index, args) => {
         if (index === 1) return Object.keys(STORE_SUBCOMMANDS);
         if (index === 2 && ["remove", "info"].includes(args[1])) return (await installedApps()).map(app => app.appId);
@@ -1327,13 +1327,13 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         return null;
       },
       run: (tab, args) => runStore(tab, args) },
-    ps: { group: "System", usage: "ps", desc: mariowOSI18n.t("terminal.cmd.ps", "List the open app windows"),
+    ps: { group: "System", usage: "ps", desc: hyadeOSI18n.t("terminal.cmd.ps", "List the open app windows"),
       run: tab => {
         const windows = desktopWindows();
-        if (!windows.length) { printLine(tab, mariowOSI18n.t("terminal.ps.none", "No app windows are open (or this terminal is not on the desktop).")); return; }
-        printTable(tab, "", ["PID", mariowOSI18n.t("terminal.table.window", "window"), mariowOSI18n.t("terminal.table.app", "app"), mariowOSI18n.t("terminal.table.state", "state")], windows.map((w, k) => [String(k + 1), w.id, w.title, w.state]));
+        if (!windows.length) { printLine(tab, hyadeOSI18n.t("terminal.ps.none", "No app windows are open (or this terminal is not on the desktop).")); return; }
+        printTable(tab, "", ["PID", hyadeOSI18n.t("terminal.table.window", "window"), hyadeOSI18n.t("terminal.table.app", "app"), hyadeOSI18n.t("terminal.table.state", "state")], windows.map((w, k) => [String(k + 1), w.id, w.title, w.state]));
       } },
-    kill: { group: "System", usage: "kill <pid|window|app>", desc: mariowOSI18n.t("terminal.cmd.kill", "Close an app window (see ps)"),
+    kill: { group: "System", usage: "kill <pid|window|app>", desc: hyadeOSI18n.t("terminal.cmd.kill", "Close an app window (see ps)"),
       complete: (tab, index) => index === 1 ? desktopWindows().map(w => w.id) : null,
       run: (tab, args) => {
         if (args.length < 2) throw usageError("kill");
@@ -1342,15 +1342,15 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         for (const target of args.slice(1).filter(a => !/^-\d+$|^-[A-Z]+$/.test(a))) {
           const lower = target.toLowerCase();
           const found = /^\d+$/.test(target) ? windows[+target - 1] : windows.find(w => w.id.toLowerCase() === lower || w.title.toLowerCase() === lower);
-          if (!found) { printError(tab, `kill: ${target}: ${mariowOSI18n.t("terminal.kill.none", "no such window (see 'ps')")}`); status = 1; continue; }
+          if (!found) { printError(tab, `kill: ${target}: ${hyadeOSI18n.t("terminal.kill.none", "no such window (see 'ps')")}`); status = 1; continue; }
           DESKTOP.postMessage({ type: "close-app", appId: found.id }, window.location.origin);
         }
         return status;
       } },
-    notify: { group: "System", usage: "notify <title> [message]", desc: mariowOSI18n.t("terminal.cmd.notify", "Show a desktop notification (handy at the end of a long script)"),
+    notify: { group: "System", usage: "notify <title> [message]", desc: hyadeOSI18n.t("terminal.cmd.notify", "Show a desktop notification (handy at the end of a long script)"),
       run: (tab, args) => {
         if (args.length < 2) throw usageError("notify");
-        if (!IS_EMBEDDED) throw new Error(mariowOSI18n.t("terminal.open.desktop-only", "apps can only be opened from the mariowOS desktop"));
+        if (!IS_EMBEDDED) throw new Error(hyadeOSI18n.t("terminal.open.desktop-only", "apps can only be opened from the hyadeOS desktop"));
         DESKTOP.postMessage({ type: "show-notification", title: args[1], msg: args.slice(2).join(" "), icon: "🖥️" }, window.location.origin);
       } }
   };
@@ -1366,8 +1366,8 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       const rows = Object.values(COMMANDS).filter(command => command.group === group && listedInHelp(command)).map(command => [command.usage, command.desc]);
       if (rows.length) printTable(tab, commandGroupTitle(group), commandTableHeaders(), rows);
     });
-    printLine(tab, mariowOSI18n.t("terminal.help.footer", "Tab completes commands, paths, packages and apps · ↑/↓ browse the history · → accepts the grey suggestion\nCtrl+C cancels the line · Ctrl+L clears the screen · Ctrl+T / Ctrl+W open / close a tab · 'help <command>' for details"), "color-gray");
-    printLine(tab, mariowOSI18n.t("terminal.help.footer-shell", "Pipes (|), redirections (> >> <), ; && ||, $variables and $(commands) all work · 'help mwex' explains .mwex scripts"), "color-gray");
+    printLine(tab, hyadeOSI18n.t("terminal.help.footer", "Tab completes commands, paths, packages and apps · ↑/↓ browse the history · → accepts the grey suggestion\nCtrl+C cancels the line · Ctrl+L clears the screen · Ctrl+T / Ctrl+W open / close a tab · 'help <command>' for details"), "color-gray");
+    printLine(tab, hyadeOSI18n.t("terminal.help.footer-shell", "Pipes (|), redirections (> >> <), ; && ||, $variables and $(commands) all work · 'help mwex' explains .mwex scripts"), "color-gray");
   };
 
   // --- helpers used above
@@ -1414,7 +1414,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         if (s[i] === "\\" && i + 1 < s.length) { out += s[i] + s[i + 1]; i += 2; continue; }
         out += s[i++];
       }
-      if (s[i] !== delimiter) throw new Error(mariowOSI18n.t("terminal.sed.unterminated", "unterminated expression in '{script}'", { script }));
+      if (s[i] !== delimiter) throw new Error(hyadeOSI18n.t("terminal.sed.unterminated", "unterminated expression in '{script}'", { script }));
       i++;
       return out;
     };
@@ -1433,14 +1433,14 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       if (i >= s.length) break;
       const command = {};
       command.from = readAddress();
-      if (command.from && s[i] === ",") { i++; command.to = readAddress(); if (!command.to) throw new Error(mariowOSI18n.t("terminal.sed.bad-address", "bad address in '{script}'", { script })); }
+      if (command.from && s[i] === ",") { i++; command.to = readAddress(); if (!command.to) throw new Error(hyadeOSI18n.t("terminal.sed.bad-address", "bad address in '{script}'", { script })); }
       while (s[i] === " ") i++;
       if (s[i] === "!") { command.negate = true; i++; }
       const op = s[i++];
       if (op === "d" || op === "p" || op === "q") command.op = op;
       else if (op === "s") {
         const delimiter = s[i++];
-        if (!delimiter || /[\s\\\n]/.test(delimiter)) throw new Error(mariowOSI18n.t("terminal.sed.bad-command", "unknown command in '{script}'", { script }));
+        if (!delimiter || /[\s\\\n]/.test(delimiter)) throw new Error(hyadeOSI18n.t("terminal.sed.bad-command", "unknown command in '{script}'", { script }));
         const pattern = readRegex(delimiter);
         const replacement = readRegex(delimiter);
         let flags = "", nth = 0, print = false;
@@ -1454,7 +1454,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
         command.replacement = replacement;
         command.nth = nth;
         command.print = print;
-      } else throw new Error(mariowOSI18n.t("terminal.sed.bad-command", "unknown command in '{script}'", { script }));
+      } else throw new Error(hyadeOSI18n.t("terminal.sed.bad-command", "unknown command in '{script}'", { script }));
       commands.push(command);
     }
     return commands;
@@ -1479,28 +1479,28 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
   // and the Build button in ACode give the same result. It is only loaded from a copy of
   // ACode that runs on the system's origin (an isolated copy is not served here at all).
   const ACODE_SUBCOMMANDS = {
-    open: ["open [project]", mariowOSI18n.t("terminal.acode.cmd.open", "Open ACode (on a project, if you name one)")],
-    new: ["new <name> [-t blank|app|system]", mariowOSI18n.t("terminal.acode.cmd.new", "Create a project in ~/ACode from a template")],
-    list: ["list", mariowOSI18n.t("terminal.acode.cmd.list", "List your projects")],
-    check: ["check [project]", mariowOSI18n.t("terminal.acode.cmd.check", "Look for errors in every file of a project")],
-    build: ["build [project]", mariowOSI18n.t("terminal.acode.cmd.build", "Check the project, then pack it into ~/ACode/dist/<project>.zip")],
-    run: ["run [project] [-d]", mariowOSI18n.t("terminal.acode.cmd.run", "Open the app in a preview window and show its errors live (-d: don't wait)")],
-    install: ["install [project]", mariowOSI18n.t("terminal.acode.cmd.install", "Install the project as an app on this system (requires password)")],
-    help: ["help", mariowOSI18n.t("terminal.acode.cmd.help", "Show this help")]
+    open: ["open [project]", hyadeOSI18n.t("terminal.acode.cmd.open", "Open ACode (on a project, if you name one)")],
+    new: ["new <name> [-t blank|app|system]", hyadeOSI18n.t("terminal.acode.cmd.new", "Create a project in ~/ACode from a template")],
+    list: ["list", hyadeOSI18n.t("terminal.acode.cmd.list", "List your projects")],
+    check: ["check [project]", hyadeOSI18n.t("terminal.acode.cmd.check", "Look for errors in every file of a project")],
+    build: ["build [project]", hyadeOSI18n.t("terminal.acode.cmd.build", "Check the project, then pack it into ~/ACode/dist/<project>.zip")],
+    run: ["run [project] [-d]", hyadeOSI18n.t("terminal.acode.cmd.run", "Open the app in a preview window and show its errors live (-d: don't wait)")],
+    install: ["install [project]", hyadeOSI18n.t("terminal.acode.cmd.install", "Install the project as an app on this system (requires password)")],
+    help: ["help", hyadeOSI18n.t("terminal.acode.cmd.help", "Show this help")]
   };
   let acodePipeline = null;
   async function loadACode() {
     if (window.ACodePipeline) return window.ACodePipeline;
     const installed = await installedApps().catch(() => []);
     const entry = installed.find(app => app.appId === "acode");
-    if (!entry) throw Object.assign(new Error(mariowOSI18n.t("terminal.acode.not-installed", "ACode is not installed. Install it with: get install acode")), { status: 127 });
-    if (entry.isolated) throw new Error(mariowOSI18n.t("terminal.acode.isolated", "this copy of ACode runs isolated, so the Terminal cannot use it"));
+    if (!entry) throw Object.assign(new Error(hyadeOSI18n.t("terminal.acode.not-installed", "ACode is not installed. Install it with: get install acode")), { status: 127 });
+    if (entry.isolated) throw new Error(hyadeOSI18n.t("terminal.acode.isolated", "this copy of ACode runs isolated, so the Terminal cannot use it"));
     if (!acodePipeline) {
       acodePipeline = new Promise((resolve, reject) => {
         const script = document.createElement("script");
         script.src = `/desktop/apps/acode/pipeline.js?v=${Date.now()}`;
         script.onload = () => window.ACodePipeline ? resolve(window.ACodePipeline) : reject(new Error("pipeline.js did not load"));
-        script.onerror = () => { acodePipeline = null; reject(new Error(mariowOSI18n.t("terminal.acode.old", "this ACode has no pipeline: update it with 'get upgrade'"))); };
+        script.onerror = () => { acodePipeline = null; reject(new Error(hyadeOSI18n.t("terminal.acode.old", "this ACode has no pipeline: update it with 'get upgrade'"))); };
         document.head.appendChild(script);
       });
     }
@@ -1512,7 +1512,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     if (arg) {
       if (arg === "." || arg === ".." || arg.includes("/") || arg.startsWith("~")) {
         const match = normalizeVirtualPath(arg, tab.currentDirectory).match(/^\/home\/ACode\/([^/]+)/);
-        if (!match || match[1] === "dist") throw new Error(mariowOSI18n.t("terminal.acode.not-in-acode", "{path} is not a project folder in ~/ACode", { path: arg }));
+        if (!match || match[1] === "dist") throw new Error(hyadeOSI18n.t("terminal.acode.not-in-acode", "{path} is not a project folder in ~/ACode", { path: arg }));
         return match[1];
       }
       return arg;
@@ -1521,7 +1521,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     if (here && here[1] !== "dist") return here[1];
     const current = tab.shell.getVar("ACODE_PROJECT");
     if (current) return current;
-    throw new Error(mariowOSI18n.t("terminal.acode.which", "which project? Name it (acode build myapp) or cd into ~/ACode/<project>"));
+    throw new Error(hyadeOSI18n.t("terminal.acode.which", "which project? Name it (acode build myapp) or cd into ~/ACode/<project>"));
   }
 
   // compiler-style lines: file:line:col  error  message  (source)
@@ -1537,7 +1537,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
   function problemSummary(problems) {
     const count = severity => problems.filter(p => p.severity === severity).length;
     const errors = count("error"), warnings = count("warning");
-    return mariowOSI18n.t("terminal.acode.summary", "{errors} error(s), {warnings} warning(s)", { errors, warnings });
+    return hyadeOSI18n.t("terminal.acode.summary", "{errors} error(s), {warnings} warning(s)", { errors, warnings });
   }
 
   async function loadACodeProject(tab, P, name) {
@@ -1546,7 +1546,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       if (/no project named/.test(error.message)) {
         const names = (await P.listProjects()).map(p => p.name);
         const suggestion = closestMatch(name, names);
-        throw new Error(suggestion ? mariowOSI18n.t("terminal.acode.no-project-suggest", "no project named '{name}'. Did you mean '{suggestion}'?", { name, suggestion }) : mariowOSI18n.t("terminal.acode.no-project", "no project named '{name}' (see 'acode list')", { name }));
+        throw new Error(suggestion ? hyadeOSI18n.t("terminal.acode.no-project-suggest", "no project named '{name}'. Did you mean '{suggestion}'?", { name, suggestion }) : hyadeOSI18n.t("terminal.acode.no-project", "no project named '{name}' (see 'acode list')", { name }));
       }
       throw error;
     }
@@ -1559,7 +1559,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     const errors = problems.filter(p => p.severity === "error");
     if (errors.length) {
       printProblems(tab, errors);
-      printLine(tab, mariowOSI18n.t("terminal.acode.run-anyway", "Running anyway: the app may not work as expected."), "color-yellow");
+      printLine(tab, hyadeOSI18n.t("terminal.acode.run-anyway", "Running anyway: the app may not work as expected."), "color-yellow");
     }
     let channel = null;
     const reports = [];
@@ -1568,9 +1568,9 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       channel.onmessage = event => reports.push(event.data);
     }
     P.openPreview(project.name);
-    printLine(tab, `▶ ${mariowOSI18n.t("terminal.acode.running", "{name} is running in a preview window.", { name: project.name })}`, "color-green");
+    printLine(tab, `▶ ${hyadeOSI18n.t("terminal.acode.running", "{name} is running in a preview window.", { name: project.name })}`, "color-green");
     if (detach) return 0;
-    printLine(tab, mariowOSI18n.t("terminal.acode.watching", "Watching it for errors · Ctrl+C stops watching (the preview stays open)"), "color-gray");
+    printLine(tab, hyadeOSI18n.t("terminal.acode.watching", "Watching it for errors · Ctrl+C stops watching (the preview stays open)"), "color-gray");
     let seen = 0, runtimeErrors = 0, started = Date.now();
     const kinds = { error: "error", rejection: "error", resource: "error", "console-error": "error", "console-warn": "warning" };
     try {
@@ -1579,7 +1579,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           const report = reports[seen++];
           const where = P.locate(report);
           if (where.project !== project.name) continue;
-          if (report.kind === "load") { if (Date.now() - started > 1500) printLine(tab, mariowOSI18n.t("terminal.acode.reloaded", "↻ reloaded"), "color-gray"); continue; }
+          if (report.kind === "load") { if (Date.now() - started > 1500) printLine(tab, hyadeOSI18n.t("terminal.acode.reloaded", "↻ reloaded"), "color-gray"); continue; }
           const severity = kinds[report.kind] || "error";
           if (severity === "error") runtimeErrors++;
           const file = where.file || "index.html";
@@ -1587,7 +1587,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
           printProblems(tab, [{ file, line: (found && found.line) || where.line || 1, col: (found && found.col) || where.col || 1, severity, message: report.message, source: report.kind.replace("console-", "console.") }]);
         }
         if (Date.now() - started > 2500 && !P.isPreviewOpen(project.name) && P.desktopWindow()) {
-          printLine(tab, mariowOSI18n.t("terminal.acode.preview-closed", "The preview was closed."), "color-gray");
+          printLine(tab, hyadeOSI18n.t("terminal.acode.preview-closed", "The preview was closed."), "color-gray");
           break;
         }
         if (!(await pause(tab, 250))) break;
@@ -1601,8 +1601,8 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
   async function runACode(tab, args) {
     const sub = args[1];
     if (sub === "help" || sub === "--help") {
-      printTable(tab, mariowOSI18n.t("terminal.acode.title", "ACode from the terminal:"), commandTableHeaders(), Object.values(ACODE_SUBCOMMANDS));
-      printLine(tab, mariowOSI18n.t("terminal.acode.help-footer", "Projects live in ~/ACode/<project>. Without a project name, the folder you are in (or the one open in ACode) is used.\nIn ACode's own terminal, build, run, check and install work on their own."), "color-gray");
+      printTable(tab, hyadeOSI18n.t("terminal.acode.title", "ACode from the terminal:"), commandTableHeaders(), Object.values(ACODE_SUBCOMMANDS));
+      printLine(tab, hyadeOSI18n.t("terminal.acode.help-footer", "Projects live in ~/ACode/<project>. Without a project name, the folder you are in (or the one open in ACode) is used.\nIn ACode's own terminal, build, run, check and install work on their own."), "color-gray");
       return;
     }
     const P = await loadACode();
@@ -1615,36 +1615,36 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
     }
     if (sub === "list" || sub === "ls") {
       const projects = await P.listProjects();
-      if (!projects.length) { printLine(tab, mariowOSI18n.t("terminal.acode.empty", "No projects yet. Create one with: acode new myapp")); return; }
-      printTable(tab, mariowOSI18n.t("terminal.acode.projects", "Projects in ~/ACode:"), [mariowOSI18n.t("terminal.table.project", "project"), mariowOSI18n.t("terminal.table.modified", "modified")],
-        projects.map(p => [p.name, p.mtime ? new Date(p.mtime).toLocaleString(mariowOSI18n.locale) : ""]));
+      if (!projects.length) { printLine(tab, hyadeOSI18n.t("terminal.acode.empty", "No projects yet. Create one with: acode new myapp")); return; }
+      printTable(tab, hyadeOSI18n.t("terminal.acode.projects", "Projects in ~/ACode:"), [hyadeOSI18n.t("terminal.table.project", "project"), hyadeOSI18n.t("terminal.table.modified", "modified")],
+        projects.map(p => [p.name, p.mtime ? new Date(p.mtime).toLocaleString(hyadeOSI18n.locale) : ""]));
       return;
     }
     if (sub === "new" || sub === "create") {
       const { opts, rest } = getopt(args.slice(1), { values: "t", long: { template: "t" } });
-      if (rest.length !== 1) throw new Error(mariowOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `acode ${ACODE_SUBCOMMANDS.new[0]}` }));
+      if (rest.length !== 1) throw new Error(hyadeOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `acode ${ACODE_SUBCOMMANDS.new[0]}` }));
       const template = opts.t || "app";
-      if (!P.TEMPLATES[template]) throw new Error(mariowOSI18n.t("terminal.acode.bad-template", "unknown template '{template}': use {list}", { template, list: Object.keys(P.TEMPLATES).join(", ") }));
+      if (!P.TEMPLATES[template]) throw new Error(hyadeOSI18n.t("terminal.acode.bad-template", "unknown template '{template}': use {list}", { template, list: Object.keys(P.TEMPLATES).join(", ") }));
       const project = await P.createProject(rest[0], template);
-      printLine(tab, `✔ ${mariowOSI18n.t("terminal.acode.created", "Created {path} ({template}, {count} files)", { path: `~/ACode/${project.name}`, template: P.TEMPLATES[template].title, count: Object.keys(project.files).length })}`, "color-green");
-      printLine(tab, mariowOSI18n.t("terminal.acode.created-hint", "Next: cd ~/ACode/{name} && acode run   ·   or open it in ACode: acode open {name}", { name: project.name.includes(" ") ? `"${project.name}"` : project.name }), "color-gray");
+      printLine(tab, `✔ ${hyadeOSI18n.t("terminal.acode.created", "Created {path} ({template}, {count} files)", { path: `~/ACode/${project.name}`, template: P.TEMPLATES[template].title, count: Object.keys(project.files).length })}`, "color-green");
+      printLine(tab, hyadeOSI18n.t("terminal.acode.created-hint", "Next: cd ~/ACode/{name} && acode run   ·   or open it in ACode: acode open {name}", { name: project.name.includes(" ") ? `"${project.name}"` : project.name }), "color-gray");
       return;
     }
     const known = ["check", "lint", "build", "run", "install"];
     if (!known.includes(sub)) {
       const suggestion = closestMatch(sub, Object.keys(ACODE_SUBCOMMANDS));
       throw new Error(suggestion
-        ? mariowOSI18n.t("terminal.acode.invalid-suggest", "unknown command '{sub}'. Did you mean 'acode {suggestion}'?", { sub, suggestion })
-        : mariowOSI18n.t("terminal.acode.invalid", "unknown command '{sub}'. Use 'acode help'.", { sub }));
+        ? hyadeOSI18n.t("terminal.acode.invalid-suggest", "unknown command '{sub}'. Did you mean 'acode {suggestion}'?", { sub, suggestion })
+        : hyadeOSI18n.t("terminal.acode.invalid", "unknown command '{sub}'. Use 'acode help'.", { sub }));
     }
     const flags = args.slice(2).filter(a => a.startsWith("-"));
     const names = args.slice(2).filter(a => !a.startsWith("-"));
-    if (names.length > 1) throw new Error(mariowOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `acode ${(ACODE_SUBCOMMANDS[sub] || ACODE_SUBCOMMANDS.check)[0]}` }));
+    if (names.length > 1) throw new Error(hyadeOSI18n.t("terminal.error.usage", "usage: {usage}", { usage: `acode ${(ACODE_SUBCOMMANDS[sub] || ACODE_SUBCOMMANDS.check)[0]}` }));
     const name = acodeProjectName(tab, names[0]);
     const project = await loadACodeProject(tab, P, name);
 
     if (sub === "check" || sub === "lint") {
-      const stop = startSpinner(tab, mariowOSI18n.t("terminal.acode.checking", "Checking {name}...", { name }));
+      const stop = startSpinner(tab, hyadeOSI18n.t("terminal.acode.checking", "Checking {name}...", { name }));
       let problems;
       try { problems = await P.check(project); } finally { stop(); }
       printProblems(tab, problems);
@@ -1653,15 +1653,15 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       return hasErrors ? 1 : 0;
     }
     if (sub === "build") {
-      const stop = startSpinner(tab, mariowOSI18n.t("terminal.acode.building", "Building {name}...", { name }));
+      const stop = startSpinner(tab, hyadeOSI18n.t("terminal.acode.building", "Building {name}...", { name }));
       let result;
       try { result = await P.build(project); } finally { stop(); }
       printProblems(tab, result.problems, { quietInfo: true });
       if (!result.ok) {
-        printLine(tab, `✖ ${mariowOSI18n.t("terminal.acode.build-failed", "Build failed: {summary}. Fix the errors and build again.", { summary: problemSummary(result.problems) })}`, "color-red");
+        printLine(tab, `✖ ${hyadeOSI18n.t("terminal.acode.build-failed", "Build failed: {summary}. Fix the errors and build again.", { summary: problemSummary(result.problems) })}`, "color-red");
         return 1;
       }
-      printLine(tab, `✔ ${mariowOSI18n.t("terminal.acode.built", "Built {path} ({count} files, {size})", { path: result.output.replace(/^\/home/, "~"), count: result.count, size: formatBytes(result.size) })}`, "color-green");
+      printLine(tab, `✔ ${hyadeOSI18n.t("terminal.acode.built", "Built {path} ({count} files, {size})", { path: result.output.replace(/^\/home/, "~"), count: result.count, size: formatBytes(result.size) })}`, "color-green");
       return 0;
     }
     if (sub === "run") return acodeRun(tab, P, project, flags.includes("-d") || flags.includes("--detach"));
@@ -1669,19 +1669,19 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
       const problems = await P.check(project);
       if (problems.some(p => p.severity === "error")) {
         printProblems(tab, problems.filter(p => p.severity === "error"));
-        printLine(tab, `✖ ${mariowOSI18n.t("terminal.acode.install-errors", "Fix the errors before installing.")}`, "color-red");
+        printLine(tab, `✖ ${hyadeOSI18n.t("terminal.acode.install-errors", "Fix the errors before installing.")}`, "color-red");
         return 1;
       }
       const appId = P.appId(name);
       const title = P.appTitle(project);
       const already = (await installedApps().catch(() => [])).some(app => app.appId === appId);
-      printLine(tab, mariowOSI18n.t("terminal.acode.installing", "{action} {name} as the app '{id}' (\"{title}\")...", {
-        action: already ? mariowOSI18n.t("terminal.acode.updating", "Updating") : mariowOSI18n.t("terminal.acode.installing-verb", "Installing"), name, id: appId, title
+      printLine(tab, hyadeOSI18n.t("terminal.acode.installing", "{action} {name} as the app '{id}' (\"{title}\")...", {
+        action: already ? hyadeOSI18n.t("terminal.acode.updating", "Updating") : hyadeOSI18n.t("terminal.acode.installing-verb", "Installing"), name, id: appId, title
       }), "color-blue");
       await requireAuth(tab);
       const result = await api("/api/store/sideload", { appId, title, icon: "", path: project.root });
-      printLine(tab, `✔ ${mariowOSI18n.t("terminal.get.installed", "{pkg} installed successfully.", { pkg: appId })}`, "color-green");
-      printLine(tab, mariowOSI18n.t("terminal.acode.install-note", "It runs isolated like any third-party app, so same-origin system APIs that work in the preview are not available to it. Open it with: open {id}", { id: appId }), "color-gray");
+      printLine(tab, `✔ ${hyadeOSI18n.t("terminal.get.installed", "{pkg} installed successfully.", { pkg: appId })}`, "color-green");
+      printLine(tab, hyadeOSI18n.t("terminal.acode.install-note", "It runs isolated like any third-party app, so same-origin system APIs that work in the preview are not available to it. Open it with: open {id}", { id: appId }), "color-gray");
       if (IS_EMBEDDED && !already) DESKTOP.postMessage({ type: "app-installed-live", app: { appId, title: result.app.title, icon: result.app.icon, url: result.app.url } }, window.location.origin);
       return 0;
     }
@@ -1689,7 +1689,7 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
 
   COMMANDS.acode = {
     group: "System", usage: "acode <command> [project]",
-    desc: mariowOSI18n.t("terminal.cmd.acode", "ACode from the terminal: new, list, check, build, run, install, open"),
+    desc: hyadeOSI18n.t("terminal.cmd.acode", "ACode from the terminal: new, list, check, build, run, install, open"),
     complete: async (tab, index, args) => {
       if (index === 1) return Object.keys(ACODE_SUBCOMMANDS);
       if (index === 2 && args[1] !== "new") {
@@ -1702,8 +1702,8 @@ are given, or what is piped into them, so they combine: ls | grep mwex | sort -r
 
   // ---------------------------------------------------------------- help mwex
   HELP_TOPICS.mwex = tab => {
-    printHTML(tab, `<span class="color-blue">${escapeHtml(mariowOSI18n.t("terminal.mwex.title", ".mwex — mariowOS executables"))}</span>`);
-    printLine(tab, mariowOSI18n.t("terminal.mwex.body",
+    printHTML(tab, `<span class="color-blue">${escapeHtml(hyadeOSI18n.t("terminal.mwex.title", ".mwex — hyadeOS executables"))}</span>`);
+    printLine(tab, hyadeOSI18n.t("terminal.mwex.body",
 `A .mwex file is a text file of terminal commands that runs top to bottom, like a .sh script.
 
   nano hello.mwex              write it

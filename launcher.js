@@ -1,4 +1,4 @@
-// mariowOS Electron entry point. The backend owns the web shell; Electron owns
+// hyadeOS Electron entry point. The backend owns the web shell; Electron owns
 // the fullscreen window and supervises the backend's explicit lifecycle codes.
 const { app, BrowserWindow, ipcMain, shell, globalShortcut, Menu } = require('electron');
 const { spawn } = require('child_process');
@@ -6,13 +6,27 @@ const crypto = require('crypto');
 const fs = require('fs');
 const http = require('http');
 const os = require('os');
+
+// Rebrand migration (mariowOS -> hyadeOS): accept old MARIOWOS_* environment variables
+// and keep the built-in browser's cookies and history by moving its old partition folder.
+for (const key of Object.keys(process.env)) {
+  if (key.startsWith('MARIOWOS_') && process.env['HYADEOS_' + key.slice(9)] === undefined) {
+    process.env['HYADEOS_' + key.slice(9)] = process.env[key];
+  }
+}
+try {
+  const partitions = require('path').join(app.getPath('userData'), 'Partitions');
+  const oldDir = require('path').join(partitions, 'mariowos-browser');
+  const newDir = require('path').join(partitions, 'hyadeos-browser');
+  if (fs.existsSync(oldDir) && !fs.existsSync(newDir)) fs.renameSync(oldDir, newDir);
+} catch (e) { /* not fatal: the browser starts with a fresh profile */ }
 const path = require('path');
 const { pathToFileURL } = require('url');
 
 app.commandLine.appendSwitch('enable-gpu-rasterization');
 app.commandLine.appendSwitch('enable-features', 'CSSBackdropFilter');
 
-const PORT = Number(process.env.MARIOWOS_PORT || 3000);
+const PORT = Number(process.env.HYADEOS_PORT || 3000);
 if (!Number.isInteger(PORT) || PORT < 1 || PORT > 65535) {
     throw new Error('invalid port. it must be a valid TCP port');
 }
@@ -124,7 +138,7 @@ function isTrustedRendererEvent(event) {
     }
 }
 
-ipcMain.handle('mariowos:shutdown', async (event) => {
+ipcMain.handle('hyadeos:shutdown', async (event) => {
     if (!isTrustedRendererEvent(event)) throw new Error('shutdown request rejected for an untrusted renderer');
     if (!backendProcess || !backendReady) throw new Error('kernel is not ready to shut down: BUSY');
 
@@ -137,15 +151,15 @@ ipcMain.handle('mariowos:shutdown', async (event) => {
 });
 
 // Privacy mode: while it is on, screenshots, screen recordings and screen sharing see
-// mariowOS as a blank window (Windows and macOS honour this; elsewhere it does nothing).
-ipcMain.handle('mariowos:set-privacy', (event, on) => {
+// hyadeOS as a blank window (Windows and macOS honour this; elsewhere it does nothing).
+ipcMain.handle('hyadeos:set-privacy', (event, on) => {
     if (!isTrustedRendererEvent(event)) throw new Error('privacy request rejected for an untrusted renderer');
     if (!mainWindow || mainWindow.isDestroyed()) return { protected: false };
     mainWindow.setContentProtection(!!on);
     return { protected: !!on && (process.platform === 'win32' || process.platform === 'darwin') };
 });
 
-ipcMain.handle('mariowos:clear-browser-data', async (event) => {
+ipcMain.handle('hyadeos:clear-browser-data', async (event) => {
     if (!isTrustedRendererEvent(event)) throw new Error('clear request rejected for an untrusted renderer');
     // Browser tabs live in their own session; extensions keep their own storage.
     const browser = browserExtensions.browserSession();
@@ -155,7 +169,7 @@ ipcMain.handle('mariowos:clear-browser-data', async (event) => {
 });
 
 // Browser extensions: only the desktop shell may manage them (see lib/browser-extensions.js).
-const extensionHandler = (name, run) => ipcMain.handle('mariowos:extensions-' + name, async (event, ...args) => {
+const extensionHandler = (name, run) => ipcMain.handle('hyadeos:extensions-' + name, async (event, ...args) => {
     if (!isTrustedRendererEvent(event)) throw new Error('extension request rejected for an untrusted renderer');
     return run(...args);
 });
@@ -165,7 +179,7 @@ extensionHandler('load-unpacked', () => browserExtensions.loadUnpacked(mainWindo
 extensionHandler('set-enabled', (id, enabled) => browserExtensions.setEnabled(String(id), !!enabled));
 extensionHandler('remove', id => browserExtensions.remove(String(id)));
 
-ipcMain.handle('mariowos:reboot', async (event) => {
+ipcMain.handle('hyadeos:reboot', async (event) => {
     if (!isTrustedRendererEvent(event)) throw new Error('reboot request rejected for an untrusted renderer');
     if (!backendProcess || !backendReady) throw new Error('kernel is not ready to reboot: BUSY');
 
@@ -213,7 +227,7 @@ function restartFromRecovery() {
     if (!backendProcess) startBackend();
 }
 
-ipcMain.handle('mariowos:recovery-state', (event) => {
+ipcMain.handle('hyadeos:recovery-state', (event) => {
     if (!isTrustedRecoveryEvent(event)) throw new Error('recovery request rejected');
     const point = rollback.readRollbackPoint(__dirname);
     let version = null;
@@ -225,13 +239,13 @@ ipcMain.handle('mariowos:recovery-state', (event) => {
     };
 });
 
-ipcMain.handle('mariowos:recovery-retry', (event) => {
+ipcMain.handle('hyadeos:recovery-retry', (event) => {
     if (!isTrustedRecoveryEvent(event)) throw new Error('recovery request rejected');
     restartFromRecovery();
     return { ok: true };
 });
 
-ipcMain.handle('mariowos:recovery-rollback', (event) => {
+ipcMain.handle('hyadeos:recovery-rollback', (event) => {
     if (!isTrustedRecoveryEvent(event)) throw new Error('recovery request rejected');
     const restored = rollback.restoreRollbackPoint(__dirname);
     console.warn(`[sniffer]: user restored ${restored.fromVersion || 'the previous version'} from recovery.`);
@@ -239,16 +253,16 @@ ipcMain.handle('mariowos:recovery-rollback', (event) => {
     return { ok: true };
 });
 
-ipcMain.handle('mariowos:recovery-repair', async (event) => {
+ipcMain.handle('hyadeos:recovery-repair', async (event) => {
     if (!isTrustedRecoveryEvent(event)) throw new Error('recovery request rejected');
     const ok = await installKernelDependencies();
     if (ok) restartFromRecovery();
     return { ok };
 });
 
-ipcMain.handle('mariowos:recovery-open-folder', (event) => {
+ipcMain.handle('hyadeos:recovery-open-folder', (event) => {
     if (!isTrustedRecoveryEvent(event)) throw new Error('recovery request rejected');
-    const logFile = path.join(__dirname, 'mariowos.log');
+    const logFile = path.join(__dirname, 'hyadeos.log');
     if (fs.existsSync(logFile)) shell.showItemInFolder(logFile);
     else shell.openPath(__dirname);
     return { ok: true };
@@ -256,7 +270,7 @@ ipcMain.handle('mariowos:recovery-open-folder', (event) => {
 
 // Sent only when the user presses "Send report" on the recovery screen. Personal details
 // (home folder, user name, email addresses) are removed before anything leaves the device.
-const CRASH_REPORT_URL = `${(process.env.MARIOWOS_MAIL_RELAY_URL || 'https://mariowos-mail.mariowos.workers.dev').replace(/\/+$/, '')}/crash-report`;
+const CRASH_REPORT_URL = `${(process.env.HYADEOS_MAIL_RELAY_URL || 'https://mariowos-mail.mariowos.workers.dev').replace(/\/+$/, '')}/crash-report`;
 function scrubReport(text) {
     let clean = String(text || '');
     const home = os.homedir();
@@ -268,7 +282,7 @@ function scrubReport(text) {
     return clean.replace(/[^\s@'"<>]+@[^\s@'"<>]+\.[a-z]{2,}/gi, '<email>').slice(-6000);
 }
 
-ipcMain.handle('mariowos:recovery-send-report', async (event) => {
+ipcMain.handle('hyadeos:recovery-send-report', async (event) => {
     if (!isTrustedRecoveryEvent(event)) throw new Error('recovery request rejected');
     let version = null;
     try { version = JSON.parse(fs.readFileSync(path.join(__dirname, 'version.json'), 'utf8')).version; } catch {}
@@ -281,7 +295,7 @@ ipcMain.handle('mariowos:recovery-send-report', async (event) => {
     return { ok: response.ok };
 });
 
-ipcMain.handle('mariowos:recovery-quit', (event) => {
+ipcMain.handle('hyadeos:recovery-quit', (event) => {
     if (!isTrustedRecoveryEvent(event)) throw new Error('recovery request rejected');
     shuttingDown = true;
     app.quit();
@@ -305,7 +319,7 @@ function sendInstallState(state) {
 function pushInstallState() {
     if (!installState || !mainWindow || mainWindow.isDestroyed()) return;
     if (!mainWindow.webContents.getURL().includes('update=1')) return;
-    mainWindow.webContents.executeJavaScript(`window.mariowOSInstall && window.mariowOSInstall(${JSON.stringify(installState)})`).catch(() => {});
+    mainWindow.webContents.executeJavaScript(`window.hyadeOSInstall && window.hyadeOSInstall(${JSON.stringify(installState)})`).catch(() => {});
 }
 
 function showBootScreen() {
@@ -413,17 +427,17 @@ function startBackend() {
     const installNext = installingUpdate;
     installingUpdate = false;
     const instanceId = crypto.randomBytes(16).toString('hex');
-    const updateMarker = path.join(os.tmpdir(), `mariowos-update-${process.pid}-${instanceId}.json`);
-    const child = spawn(process.env.MARIOWOS_NODE_EXECUTABLE || 'node', ['server.js'], {
+    const updateMarker = path.join(os.tmpdir(), `hyadeos-update-${process.pid}-${instanceId}.json`);
+    const child = spawn(process.env.HYADEOS_NODE_EXECUTABLE || 'node', ['server.js'], {
         cwd: __dirname,
         env: {
             ...process.env,
-            ...(process.env.MARIOWOS_NODE_EXECUTABLE ? { ELECTRON_RUN_AS_NODE: '1' } : {}),
-            MARIOWOS_MANAGED_BACKEND: '1',
-            MARIOWOS_BACKEND_INSTANCE_ID: instanceId,
-            MARIOWOS_SHUTDOWN_TOKEN: shutdownToken,
-            MARIOWOS_UPDATE_MARKER: updateMarker,
-            ...(installNext ? { MARIOWOS_APPLY_STAGED: '1' } : {})
+            ...(process.env.HYADEOS_NODE_EXECUTABLE ? { ELECTRON_RUN_AS_NODE: '1' } : {}),
+            HYADEOS_MANAGED_BACKEND: '1',
+            HYADEOS_BACKEND_INSTANCE_ID: instanceId,
+            HYADEOS_SHUTDOWN_TOKEN: shutdownToken,
+            HYADEOS_UPDATE_MARKER: updateMarker,
+            ...(installNext ? { HYADEOS_APPLY_STAGED: '1' } : {})
         },
         stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true
@@ -575,8 +589,8 @@ function startBackend() {
 // The mouse back/forward buttons would walk the shell's history (desktop -> login -> boot...).
 // Swallow them in every frame of the shell; <webview> browser tabs keep their own navigation.
 const MOUSE_NAV_BLOCKER = `(() => {
-    if (window.__mariowosMouseNavBlocked) return;
-    window.__mariowosMouseNavBlocked = true;
+    if (window.__hyadeosMouseNavBlocked) return;
+    window.__hyadeosMouseNavBlocked = true;
     const block = event => {
         if (event.button === 3 || event.button === 4) {
             event.preventDefault();
@@ -590,8 +604,8 @@ const MOUSE_NAV_BLOCKER = `(() => {
 // Inside a browser tab the mouse back/forward buttons must walk that tab's history,
 // not the shell's: block the default and navigate the page itself.
 const WEBVIEW_MOUSE_NAV = `(() => {
-    if (window.__mariowosMouseNav) return;
-    window.__mariowosMouseNav = true;
+    if (window.__hyadeosMouseNav) return;
+    window.__hyadeosMouseNav = true;
     const handle = event => {
         if (event.button !== 3 && event.button !== 4) return;
         event.preventDefault();
@@ -605,8 +619,8 @@ const WEBVIEW_MOUSE_NAV = `(() => {
 // No scrollbars anywhere in the shell (content still scrolls). Applied per frame so every
 // app and iframe gets it; <webview> browser tabs are separate pages and keep theirs.
 const HIDE_SCROLLBARS = `(() => {
-    if (window.__mariowosScrollbarsHidden) return;
-    window.__mariowosScrollbarsHidden = true;
+    if (window.__hyadeosScrollbarsHidden) return;
+    window.__hyadeosScrollbarsHidden = true;
     const sheet = new CSSStyleSheet();
     sheet.replaceSync('* { scrollbar-width: none !important; }');
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
@@ -616,8 +630,8 @@ const HIDE_SCROLLBARS = `(() => {
 // keep their behaviour. It is set on the root so it cascades, and any page can mark text with
 // `user-select: text` to keep it selectable, as inputs and editors are here.
 const BLOCK_TEXT_SELECTION = `(() => {
-    if (window.__mariowosSelectionBlocked || location.origin !== ${JSON.stringify(new URL(SHELL_URL).origin)}) return;
-    window.__mariowosSelectionBlocked = true;
+    if (window.__hyadeosSelectionBlocked || location.origin !== ${JSON.stringify(new URL(SHELL_URL).origin)}) return;
+    window.__hyadeosSelectionBlocked = true;
     const sheet = new CSSStyleSheet();
     sheet.replaceSync(':root { user-select: none; } input, textarea, [contenteditable]:not([contenteditable="false"]) { user-select: text; }');
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
@@ -640,7 +654,7 @@ function blockMouseHistoryNavigation(win) {
     });
 }
 
-function bootMariowOS() {
+function bootHyadeOS() {
     if (mainWindow && !mainWindow.isDestroyed()) return;
     shuttingDown = false;
     backendReady = false;
@@ -649,7 +663,7 @@ function bootMariowOS() {
         autoHideMenuBar: true,
         frame: false,
         backgroundColor: '#05070b',
-        title: 'mariowOS',
+        title: 'hyadeOS',
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,
@@ -693,7 +707,7 @@ function bootMariowOS() {
 }
 
 // --- Alt+Tab: the desktop's window switcher ---
-// Windows keeps Alt+Tab for itself, so while mariowOS is the active window it claims the
+// Windows keeps Alt+Tab for itself, so while hyadeOS is the active window it claims the
 // combination (and gives it back the moment another app is active). The keys that follow
 // (more Tabs, the arrows, Esc, letting go of Alt) are read here too, because keyboard focus
 // inside an app or a Browser page never reaches the desktop page.
@@ -779,13 +793,15 @@ function browserShortcutFor(input) {
     if (input.alt && key === 'arrowleft') return 'back';
     if (input.alt && key === 'arrowright') return 'forward';
     if (!ctrl) return null;
+    if (input.shift && key === 'b') return 'toggle-sidebar';
+    if (/^[1-9]$/.test(key)) return 'favorite-' + key;
     if (key === 'tab') return input.shift ? 'prev-tab' : 'next-tab';
     return { t: 'new-tab', w: 'close-tab', l: 'focus-url', f: 'find',
         '=': 'zoom-in', '+': 'zoom-in', '-': 'zoom-out', '0': 'zoom-reset' }[key] || null;
 }
 
-// Electron's default menu, minus Close Window: its Ctrl+W shut the whole of mariowOS. Inside
-// mariowOS that key belongs to the apps (the Terminal and the Browser close a tab with it).
+// Electron's default menu, minus Close Window: its Ctrl+W shut the whole of hyadeOS. Inside
+// hyadeOS that key belongs to the apps (the Terminal and the Browser close a tab with it).
 // Editing shortcuts, reload and the developer tools stay as they were.
 function installAppMenu() {
     Menu.setApplicationMenu(Menu.buildFromTemplate([
@@ -800,10 +816,10 @@ app.whenReady().then(async () => {
     console.log('[sniffer]: booting...');
     installAppMenu();
     await browserExtensions.init().catch(error => console.error('[browser]: extensions did not load:', error.message));
-    bootMariowOS();
+    bootHyadeOS();
 
     app.on('activate', () => {
-        if (BrowserWindow.getAllWindows().length === 0) bootMariowOS();
+        if (BrowserWindow.getAllWindows().length === 0) bootHyadeOS();
     });
 });
 

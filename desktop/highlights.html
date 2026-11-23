@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="/desktop/assets/fonts/fonts.css" rel="stylesheet">
     <link href="/desktop/assets/setup.css" rel="stylesheet">
-    <title data-i18n="setup.title">mariowOS Setup</title>
+    <title data-i18n="setup.title">hyadeOS Setup</title>
     <style>
         * {
             margin: 0;
@@ -96,28 +96,30 @@
 
     <main class="setup-stage">
         <div class="setup-content highlights">
-            <div class="highlight-tabs" role="tablist">
-                <button class="highlight-tab" role="tab" type="button" aria-selected="true" data-i18n="setup.highlights.desktop">A new desktop</button>
-                <button class="highlight-tab" role="tab" type="button" aria-selected="false" data-i18n="setup.highlights.store">The Store</button>
-                <button class="highlight-tab" role="tab" type="button" aria-selected="false" data-i18n="setup.highlights.music">Music</button>
-                <!-- Placeholder sections: change the name here, the picture and text below, and the setup.highlights.extra-* keys in it.json. -->
-                <button class="highlight-tab" role="tab" type="button" aria-selected="false" data-i18n="setup.highlights.extra-1">Section four</button>
-                <button class="highlight-tab" role="tab" type="button" aria-selected="false" data-i18n="setup.highlights.extra-2">Section five</button>
+            <!-- Each section: a tab, a screenshot and a text, in the same order.
+                 Screenshots are 1920x1080 files in /desktop/assets/highlights/ named after data-shot
+                 (.webp, .jpg or .png); until one is there, the placeholder is shown. -->
+            <div class="highlight-tabs" role="tablist" aria-label="Highlights" data-i18n-aria-label="setup.highlights.label">
+                <button class="highlight-tab" role="tab" type="button" aria-selected="true" data-i18n="setup.highlights.desktop">A real desktop</button>
+                <button class="highlight-tab" role="tab" type="button" aria-selected="false" tabindex="-1" data-i18n="setup.highlights.search">Search and widgets</button>
+                <button class="highlight-tab" role="tab" type="button" aria-selected="false" tabindex="-1" data-i18n="setup.highlights.store">The Store</button>
+                <button class="highlight-tab" role="tab" type="button" aria-selected="false" tabindex="-1" data-i18n="setup.highlights.accounts">Accounts</button>
+                <button class="highlight-tab" role="tab" type="button" aria-selected="false" tabindex="-1" data-i18n="setup.highlights.personalize">Make it yours</button>
             </div>
 
             <div class="highlight-view" role="tabpanel" aria-live="polite">
                 <div class="highlight-media">
-                    <img class="show" id="picture-desktop" src="/desktop/assets/newmwos.png" alt="">
-                    <img id="picture-store" src="/desktop/assets/highlight-store.jpg" alt="">
-                    <img id="picture-music" src="/desktop/assets/highlight-music.jpg" alt="">
-                    <img id="picture-extra-1" src="/desktop/assets/highlight-placeholder.svg" alt="">
-                    <img id="picture-extra-2" src="/desktop/assets/highlight-placeholder.svg" alt="">
+                    <img class="show" data-shot="desktop" alt="">
+                    <img data-shot="search" alt="">
+                    <img data-shot="store" alt="">
+                    <img data-shot="accounts" alt="">
+                    <img data-shot="personalize" alt="">
                 </div>
-                <p class="highlight-text show" data-i18n="setup.highlights.desktop-text">mariowOS has been completely reimagined.</p>
-                <p class="highlight-text" data-i18n="setup.highlights.store-text">Install and remove apps, and read each app's terms first.</p>
-                <p class="highlight-text" data-i18n="setup.highlights.music-text">Radio, your own files, Spotify, Last.fm and Audius in one app.</p>
-                <p class="highlight-text" data-i18n="setup.highlights.extra-1-text">Description of section four.</p>
-                <p class="highlight-text" data-i18n="setup.highlights.extra-2-text">Description of section five.</p>
+                <p class="highlight-text show" data-i18n="setup.highlights.desktop-text">Snap windows side by side, use several desktops, and keep the Windows shortcuts you know: Win, Win+D, Win+arrows, Win+V.</p>
+                <p class="highlight-text" data-i18n="setup.highlights.search-text">Press Win+S to find apps, files and settings, or to do a quick calculation. Win+W opens your widgets: weather, today's events, notes and what's playing.</p>
+                <p class="highlight-text" data-i18n="setup.highlights.store-text">Install apps straight from GitHub. You see the permissions each app asks for before you install it, and apps can update by themselves.</p>
+                <p class="highlight-text" data-i18n="setup.highlights.accounts-text">Everyone gets their own account, password and files. There's also a guest account, parental controls and a personal backup.</p>
+                <p class="highlight-text" data-i18n="setup.highlights.personalize-text">Pick a live wallpaper, choose an accent color, and follow music, timers and updates in the dynamic island.</p>
             </div>
         </div>
     </main>
@@ -128,12 +130,6 @@
 
     <script src="/desktop/assets/setup.js"></script>
     <script>
-        document.getElementById('picture-desktop').alt = mariowOSI18n.t("setup.highlights.desktop-alt", "The new mariowOS desktop");
-        document.getElementById('picture-store').alt = mariowOSI18n.t("setup.highlights.store-alt", "The Store showing apps ready to install");
-        document.getElementById('picture-music').alt = mariowOSI18n.t("setup.highlights.music-alt", "The Music app showing a list of radio stations");
-        document.getElementById('picture-extra-1').alt = mariowOSI18n.t("setup.highlights.extra-1-alt", "Picture of section four");
-        document.getElementById('picture-extra-2').alt = mariowOSI18n.t("setup.highlights.extra-2-alt", "Picture of section five");
-
         const pictures = [...document.querySelectorAll('.highlight-media img')];
         const descriptions = [...document.querySelectorAll('.highlight-text')];
         const tabs = [...document.querySelectorAll('.highlight-tab')];
@@ -141,14 +137,50 @@
         const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
         let current = 0;
 
-        function showHighlight(index) {
+        // Load each screenshot as .webp, then .jpg, then .png; the placeholder if none is there yet.
+        const EXTENSIONS = ['webp', 'jpg', 'png'];
+        const ALTS = {
+            desktop: hyadeOSI18n.t("setup.highlights.desktop-alt", "The hyadeOS desktop with two windows snapped side by side"),
+            search: hyadeOSI18n.t("setup.highlights.search-alt", "The search panel and the widgets next to each other"),
+            store: hyadeOSI18n.t("setup.highlights.store-alt", "The Store showing apps ready to install"),
+            accounts: hyadeOSI18n.t("setup.highlights.accounts-alt", "The login screen with several accounts"),
+            personalize: hyadeOSI18n.t("setup.highlights.personalize-alt", "A live wallpaper with the dynamic island playing music")
+        };
+        pictures.forEach(picture => {
+            const name = picture.dataset.shot;
+            picture.alt = ALTS[name] || '';
+            let attempt = 0;
+            picture.addEventListener('error', () => {
+                attempt++;
+                picture.src = attempt < EXTENSIONS.length
+                    ? `/desktop/assets/highlights/${name}.${EXTENSIONS[attempt]}`
+                    : '/desktop/assets/highlight-placeholder.svg';
+            });
+            picture.src = `/desktop/assets/highlights/${name}.${EXTENSIONS[0]}`;
+        });
+
+        function showHighlight(index, focus = false) {
             current = index;
             pictures.forEach((picture, i) => picture.classList.toggle('show', i === index));
             descriptions.forEach((description, i) => description.classList.toggle('show', i === index));
-            tabs.forEach((tab, i) => tab.setAttribute('aria-selected', String(i === index)));
+            tabs.forEach((tab, i) => {
+                tab.setAttribute('aria-selected', String(i === index));
+                tab.tabIndex = i === index ? 0 : -1;
+            });
+            if (focus) tabs[index].focus();
         }
 
         tabs.forEach((tab, index) => tab.addEventListener('click', () => showHighlight(index)));
+
+        // Arrow keys move between tabs, Home/End jump to the first/last.
+        document.querySelector('.highlight-tabs').addEventListener('keydown', e => {
+            const keys = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 };
+            if (e.key in keys) showHighlight((current + keys[e.key] + tabs.length) % tabs.length, true);
+            else if (e.key === 'Home') showHighlight(0, true);
+            else if (e.key === 'End') showHighlight(tabs.length - 1, true);
+            else return;
+            e.preventDefault();
+        });
 
         // Moves on by itself, unless the user is looking at one.
         if (!reducedMotion) {

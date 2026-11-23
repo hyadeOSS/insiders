@@ -6,7 +6,7 @@
 <script src="/desktop/assets/i18n-data.js"></script>
 <script src="/desktop/assets/i18n.js"></script>
 <script src="/desktop/assets/accent.js"></script>
-<script src="/desktop/assets/mariowos-dialogs.js"></script>
+<script src="/desktop/assets/hyadeos-dialogs.js"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Set Time Manually</title>
@@ -146,7 +146,7 @@ async function setTime() {
   const timeInput = document.getElementById('timeInput');
   
   if (!timeInput.value) {
-    await mDialog.alert(mariowOSI18n.t('settings.set-time-manually.select-alert', 'Please select a time.'));
+    await mDialog.alert(hyadeOSI18n.t('settings.set-time-manually.select-alert', 'Please select a time.'));
     return;
   }
 
@@ -161,7 +161,7 @@ async function setTime() {
   localStorage.setItem('manualTimeEnabled', 'true');
   localStorage.removeItem('timezoneOffset');
 
-  await mDialog.alert(mariowOSI18n.t('settings.set-time-manually.set', 'System time set to {time}.', { time: `${hours}:${minutes}` }));
+  await mDialog.alert(hyadeOSI18n.t('settings.set-time-manually.set', 'System time set to {time}.', { time: `${hours}:${minutes}` }));
   
   setTimeout(function() {
     window.history.back();

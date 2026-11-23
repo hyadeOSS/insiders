@@ -180,7 +180,7 @@
       }
     }
 
-    // Installing an update: the launcher feeds the installer's progress to mariowOSInstall().
+    // Installing an update: the launcher feeds the installer's progress to hyadeOSInstall().
     if (new URLSearchParams(location.search).get('update') === '1') {
       document.body.classList.add('updating');
       bootLogo.src = 'desktop/assets/icons/stars.png';
@@ -188,7 +188,7 @@
       const fill = box.querySelector('.ins-fill'), text = box.querySelector('.ins-text');
       let shown = 0;
       text.textContent = 'Preparing to install…';
-      window.mariowOSInstall = state => {
+      window.hyadeOSInstall = state => {
         if (state.rebooting) {
           const reboot = () => {
             box.classList.add('rebooting');
@@ -200,7 +200,7 @@
           return;
         }
         if (typeof state.percent === 'number') { shown = Math.max(shown, Math.min(100, state.percent)); fill.style.width = shown + '%'; }
-        text.textContent = state.version ? `Installing mariowOS ${state.version}…` : 'Installing update…';
+        text.textContent = state.version ? `Installing hyadeOS ${state.version}…` : 'Installing update…';
       };
     } else {
       start();

@@ -6,7 +6,7 @@
 <script src="/desktop/assets/i18n-data.js"></script>
 <script src="/desktop/assets/i18n.js"></script>
 <script src="/desktop/assets/accent.js"></script>
-<script src="/desktop/assets/mariowos-dialogs.js"></script>
+<script src="/desktop/assets/hyadeos-dialogs.js"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Factory Reset</title>
@@ -301,9 +301,9 @@ async function showStage2() {
   document.querySelector('.stage-2').classList.add('active');
   needsPassword = await factoryResetNeedsPassword();
   document.getElementById('passwordCard').style.display = needsPassword === false ? 'none' : '';
-  document.getElementById('passwordHint').textContent = mariowOSI18n.t('settings.factory-reset.password-hint', 'Your password is required to erase this device.');
+  document.getElementById('passwordHint').textContent = hyadeOSI18n.t('settings.factory-reset.password-hint', 'Your password is required to erase this device.');
   if (needsPassword === null) {
-    document.getElementById('passwordHint').textContent = mariowOSI18n.t('settings.factory-reset.password-hint-none', 'Leave it empty if you never set a password.');
+    document.getElementById('passwordHint').textContent = hyadeOSI18n.t('settings.factory-reset.password-hint-none', 'Leave it empty if you never set a password.');
   }
   document.getElementById('confirmInput').focus();
   checkConfirmation();
@@ -330,7 +330,7 @@ async function executeFactoryReset() {
   try {
     await runFactoryReset(needsPassword === false ? '' : document.getElementById('passwordInput').value);
   } catch (err) {
-    await mDialog.alert(mariowOSI18n.t('settings.factory-reset.failed', 'Factory reset failed: {error}', { error: err.message }));
+    await mDialog.alert(hyadeOSI18n.t('settings.factory-reset.failed', 'Factory reset failed: {error}', { error: err.message }));
     const pwd = document.getElementById('passwordInput');
     pwd.value = '';
     if (needsPassword !== false) pwd.focus();

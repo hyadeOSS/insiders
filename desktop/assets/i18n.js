@@ -1,4 +1,4 @@
-// mariowOS translations for system apps. See TRANSLATING.md.
+// hyadeOS translations for system apps. See TRANSLATING.md.
 //
 // Load it at the top of <head>, after the server-made language data:
 //   <script src="/desktop/assets/i18n-data.js"></script>
@@ -10,10 +10,24 @@
 // /desktop/assets/locales/languages.json ({ "<lang>": "Native name" }).
 //  - HTML: data-i18n="key" (text), data-i18n-placeholder / -title / -aria-label (attributes).
 //    Elements added later (innerHTML, templates) are translated automatically.
-//  - Scripts: mariowOSI18n.t("key", "English text") or, with values,
-//    mariowOSI18n.t("key", "Hello {name}", { name }).
-//  - Dates and numbers: pass mariowOSI18n.locale to toLocaleString / Intl.
+//  - Scripts: hyadeOSI18n.t("key", "English text") or, with values,
+//    hyadeOSI18n.t("key", "Hello {name}", { name }).
+//  - Dates and numbers: pass hyadeOSI18n.locale to toLocaleString / Intl.
 // The language is Settings › General › Language (default English; "auto" follows the computer).
+
+// Rebrand migration (mariowOS -> hyadeOS): this file loads first on every page, so it moves
+// browser storage keys saved under the old name (e.g. mariowos_recent_files@<user>) once.
+(function () {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (!/mariowos/i.test(key)) continue;
+      const renamed = key.replace(/mariowos/gi, m => m === m.toUpperCase() ? "HYADEOS" : (m[0] === "M" ? "Hyade" : "hyade") + m.slice(6));
+      if (localStorage.getItem(renamed) === null) localStorage.setItem(renamed, localStorage.getItem(key));
+      localStorage.removeItem(key);
+    }
+  } catch (e) { /* storage unavailable: nothing to migrate */ }
+})();
+
 (function () {
   const ATTRIBUTES = [["placeholder", "placeholder"], ["title", "title"], ["aria-label", "aria-label"]];
   let languages = { en: "English" };
@@ -87,7 +101,7 @@
     }).observe(document.documentElement, { childList: true, subtree: true });
   }
 
-  const preloaded = window.__mariowOSI18nData;
+  const preloaded = window.__hyadeOSI18nData;
   if (preloaded) useData(preloaded);
   const ready = (preloaded ? Promise.resolve() : fetchData()).then(() => {
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start, { once: true });
@@ -95,7 +109,7 @@
     return language;
   });
 
-  window.mariowOSI18n = Object.freeze({
+  window.hyadeOSI18n = Object.freeze({
     ready,
     t,
     apply,

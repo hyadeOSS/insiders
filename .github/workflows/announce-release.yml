@@ -1,4 +1,4 @@
-# Posts every new mariowOS release to Discord.
+# Posts every new hyadeOS release to Discord.
 # Setup (once, in this repository on GitHub): Settings › Secrets and variables › Actions ›
 # New repository secret, name DISCORD_WEBHOOK_URL, value = the webhook URL of the Discord
 # channel (Discord: Channel settings › Integrations › Webhooks › New webhook › Copy URL).

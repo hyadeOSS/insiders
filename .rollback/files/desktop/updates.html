@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="/desktop/assets/i18n-data.js"></script>
+    <script src="/desktop/assets/i18n.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="/desktop/assets/fonts/fonts.css" rel="stylesheet">
+    <link href="/desktop/assets/setup.css" rel="stylesheet">
+    <title data-i18n="setup.title">hyadeOSS Setup</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+    </style>
+</head>
+<body class="setup-page" data-step="4">
+
+    <h1 class="setup-title" data-words="Updates|Aggiornamenti|Actualizări|更新">Updates</h1>
+
+    <main class="setup-stage">
+        <div class="setup-content">
+            <div class="setup-panel">
+                <p class="setup-lede" data-i18n="setup.updates.subtitle">Keep hyadeOSS up to date</p>
+                <h2 data-i18n="setup.updates.heading">Update hyadeOSS loader along system?</h2>
+                <p data-i18n="setup.updates.description">You can choose to opt out of this feature if you’re using an old version of node.js or kernel modules. Required updates and modules are still going to download. </p>
+
+                <div class="toggle-container" id="mainToggle" role="switch" tabindex="0" aria-labelledby="toggleLabel">
+                    <span class="toggle-label" id="toggleLabel" data-i18n="setup.updates.toggle">Update</span>
+                    <div class="switch">
+                        <div class="circle"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <a href="highlights.html" class="setup-next" aria-label="Next" data-i18n-aria-label="setup.next">
+        <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
+    </a>
+
+    <script src="/desktop/assets/setup.js"></script>
+    <script>
+        const toggle = document.getElementById('mainToggle');
+        toggle.addEventListener('click', () => {
+            toggle.classList.toggle('active');
+        });
+    </script>
+</body>
+</html>
