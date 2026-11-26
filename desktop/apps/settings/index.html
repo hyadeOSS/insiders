@@ -115,6 +115,7 @@ Licensed under the Apache License, Version 2.0; you can use this file if you giv
   .c-users { background: linear-gradient(180deg, #40c8e0, #30b0c7); }
   .c-wallpaper { background: linear-gradient(180deg, #34c759, #28cd41); }
   .c-lockscreen { background: linear-gradient(180deg, #bf5af2, #af52de); }
+  .c-a11y { background: linear-gradient(180deg, #0a84ff, #0060df); }
   .c-functions { background: linear-gradient(180deg, #ff9f0a, #ffb340); }
   .c-system { background: linear-gradient(180deg, #5e5ce6, #5856d6); }
   .c-updater { background: linear-gradient(180deg, #32d74b, #28cd41); }
@@ -228,6 +229,14 @@ Licensed under the Apache License, Version 2.0; you can use this file if you giv
         </div>
       </div>
 
+      <div class="menu-item" onclick="loadPage('accessibility', this)">
+        <div class="icon-bg c-a11y"><span class="material-symbols-outlined">accessibility_new</span></div>
+        <div class="text-group">
+          <div class="title" data-i18n="settings.nav.accessibility">Accessibility</div>
+          <div class="subtitle" data-i18n="settings.nav.accessibility.subtitle">Text size, contrast, motion, keyboard</div>
+        </div>
+      </div>
+
       <div class="sidebar-divider"></div>
 
       <div class="menu-item" onclick="loadPage('functions', this)">
@@ -315,6 +324,7 @@ Licensed under the Apache License, Version 2.0; you can use this file if you giv
     security: "Security",
     wallpaper: "Wallpaper & Style",
     lockscreen: "Lockscreen",
+    accessibility: "Accessibility",
     functions: "Functions Lab",
     system: "General",
     updater: "Updater",
@@ -332,6 +342,7 @@ Licensed under the Apache License, Version 2.0; you can use this file if you giv
     users: "assets/users.html",
     wallpaper: "assets/wallpaper.html",
     lockscreen: "assets/lockscreen.html",
+    accessibility: "assets/accessibility.html",
     functions: "assets/lab.html",
     system: "assets/systemsettings.html",
     updater: "assets/update-mirror-2.html",

@@ -159,6 +159,22 @@ ipcMain.handle('hyadeos:set-privacy', (event, on) => {
     return { protected: !!on && (process.platform === 'win32' || process.platform === 'darwin') };
 });
 
+// Window motion (desktop/assets/window-fx.js): a picture of one window's area, drawn on a
+// bendable mesh while it wobbles or pours into the dock. Only the desktop itself may ask.
+ipcMain.handle('hyadeos:capture-rect', async (event, rect) => {
+    if (!isTrustedRendererEvent(event)) throw new Error('capture request rejected for an untrusted renderer');
+    if (!mainWindow || mainWindow.isDestroyed() || !rect || typeof rect !== 'object') return null;
+    const [maxW, maxH] = mainWindow.getContentSize();
+    const num = v => (Number.isFinite(Number(v)) ? Math.round(Number(v)) : 0);
+    const x = Math.max(0, Math.min(num(rect.x), maxW - 1)), y = Math.max(0, Math.min(num(rect.y), maxH - 1));
+    const width = Math.max(0, Math.min(num(rect.width), maxW - x)), height = Math.max(0, Math.min(num(rect.height), maxH - y));
+    if (width < 8 || height < 8) return null;
+    const image = await mainWindow.webContents.capturePage({ x, y, width, height });
+    if (image.isEmpty()) return null;
+    const size = image.getSize();
+    return { data: image.toJPEG(92), width: size.width, height: size.height, rect: { x, y, width, height } };
+});
+
 ipcMain.handle('hyadeos:clear-browser-data', async (event) => {
     if (!isTrustedRendererEvent(event)) throw new Error('clear request rejected for an untrusted renderer');
     // Browser tabs live in their own session; extensions keep their own storage.
@@ -753,6 +769,12 @@ app.on('will-quit', () => globalShortcut.unregisterAll());
 // and every attempt to open a new window must be constrained. Without this, a page
 // loaded in a webview could attach a webview with nodeIntegration on, inject a
 // preload, or pop native windows pointing anywhere.
+// The hyadeOS desktop (which has the Browser) is the page in the main window.
+function desktopIsShowing() {
+    if (!mainWindow || mainWindow.isDestroyed()) return false;
+    try { return new URL(mainWindow.webContents.getURL()).pathname === '/desktop/com.hyadeos.desktop.html'; } catch { return false; }
+}
+
 app.on('web-contents-created', (_event, contents) => {
     // Never let a child webview turn Node back on or load a preload of its choosing.
     contents.on('will-attach-webview', (_e, webPreferences, params) => {
@@ -761,16 +783,20 @@ app.on('web-contents-created', (_event, contents) => {
         webPreferences.contextIsolation = true;
         webPreferences.sandbox = true;
     });
-    // Window.open / target=_blank: from a browser tab (webview) open it as a new in-OS tab;
-    // from anything else open http(s) in the user's real browser. Native windows are always denied.
-    const isWebview = contents.getType() === 'webview';
+    // Window.open / target=_blank from anywhere (browser tabs, apps, Settings, the desktop): http(s)
+    // opens as a new tab in the hyadeOS Browser. Only when the desktop isn't running (setup, login,
+    // recovery: no Browser there) does it go to the computer's own browser. mailto: goes to the mail app.
+    // Native windows are always denied.
     contents.setWindowOpenHandler(({ url }) => {
         if (/^https?:\/\//i.test(url)) {
-            if (isWebview && mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('browser:open-tab', url);
+            if (desktopIsShowing()) mainWindow.webContents.send('browser:open-tab', url);
             else shell.openExternal(url);
+        } else if (/^mailto:/i.test(url)) {
+            shell.openExternal(url);
         }
         return { action: 'deny' };
     });
+    const isWebview = contents.getType() === 'webview';
     // Keyboard focus inside a webview never reaches the desktop page, so browser
     // shortcuts are intercepted here and forwarded to it.
     if (isWebview) {

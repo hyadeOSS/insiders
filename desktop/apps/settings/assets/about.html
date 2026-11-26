@@ -22,6 +22,8 @@
       background: transparent;
       -webkit-font-smoothing: antialiased;
     }
+    /* With the legal rows the page can be taller than Settings: the body scrolls (scrollbar hidden). */
+    body { overflow-y: auto !important; }
 
     body {
       font-family: 'Poppins', sans-serif;
@@ -212,6 +214,23 @@
       <span class="link-text">
         <span class="link-title" data-i18n="settings.about.credits">Credits</span>
         <span class="link-sub" data-i18n="settings.about.credits-sub">The people behind hyadeOS</span>
+      </span>
+      <span class="material-symbols-outlined link-arrow">chevron_right</span>
+    </a>
+    <!-- The legal documents live in /desktop/legal/ (shared with setup); ?embed=settings gives them About's back header. -->
+    <a class="link-row" href="/desktop/legal/index.html?embed=settings">
+      <span class="link-icon"><span class="material-symbols-outlined">gavel</span></span>
+      <span class="link-text">
+        <span class="link-title" data-i18n="settings.about.legal">Legal &amp; privacy</span>
+        <span class="link-sub" data-i18n="settings.about.legal-sub">License, terms of use, privacy</span>
+      </span>
+      <span class="material-symbols-outlined link-arrow">chevron_right</span>
+    </a>
+    <a class="link-row" href="/desktop/legal/safety.html?embed=settings">
+      <span class="link-icon"><span class="material-symbols-outlined">health_and_safety</span></span>
+      <span class="link-text">
+        <span class="link-title" data-i18n="settings.about.health">Health &amp; safety</span>
+        <span class="link-sub" data-i18n="settings.about.health-sub">Your health, device care and cooling</span>
       </span>
       <span class="material-symbols-outlined link-arrow">chevron_right</span>
     </a>

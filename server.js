@@ -1408,6 +1408,16 @@ app.post("/api/email/verify-code", async (req, res) => {
   res.json({ success: true, message: "Email verified!", activatedAt: config.activatedAt });
 });
 
+// --- LEGAL (setup: "I accept the License and the Terms of use") ---
+// Records which version of the legal documents (desktop/legal/) was accepted and when.
+const LEGAL_VERSION = "2026-11-25";
+app.post("/api/legal/accept", requireAuthJson, (req, res) => {
+  if (String(req.body?.version || "") !== LEGAL_VERSION) return res.status(400).json({ success: false, error: "Unknown document version." });
+  config.legalAccepted = { version: LEGAL_VERSION, at: new Date().toISOString() };
+  saveConfig();
+  res.json({ success: true, ...config.legalAccepted });
+});
+
 // --- ACTIVATION (Settings > Activation) ---
 // Activated = an email verified through the mail relay is bound to this system's account.
 // activatedAt is null for systems verified before the date was recorded.

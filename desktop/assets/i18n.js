@@ -28,6 +28,72 @@
   } catch (e) { /* storage unavailable: nothing to migrate */ }
 })();
 
+// Accessibility (Settings → Accessibility). This file loads first on every hyadeOS page (the desktop,
+// every app, Settings, setup), so the choices apply everywhere before anything is drawn, and change
+// live in every open window when they are changed (the "storage" event).
+// Saved in localStorage "hyadeosA11y": { reduceMotion, reduceTransparency, contrast, colorFilter
+// ("none" | "grayscale" | "invert"), textSize (100 | 115 | 130), focusRing, underlineLinks }.
+(function () {
+  const KEY = "hyadeosA11y";
+  const isShell = window.top === window; // the desktop itself (filters go there once, not in every app again)
+  const read = () => { try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { return {}; } };
+  const CSS = `
+    html.a11y-motion *, html.a11y-motion *::before, html.a11y-motion *::after {
+      animation-duration: .001ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important; transition-delay: 0s !important; scroll-behavior: auto !important; }
+    html.a11y-solid *, html.a11y-solid *::before, html.a11y-solid *::after { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+    /* Outranks the desktop's own glass rules (one of them uses an #id), hence the repeated class and the #id in :is(). */
+    html.a11y-solid.a11y-solid.a11y-solid.a11y-solid body :is(.popup, .dropdown, .status-bar-bg, .toast, .spotlight-box-wrapper, .browser-menu, .bsb-popover, #a11y-solid) { background-color: rgba(20, 24, 32, 0.97) !important; }
+    html.a11y-solid #popup2 { background: var(--bs-solid, #17191e) !important; }
+    html.a11y-focus *:focus-visible { outline: 3px solid #ffd60a !important; outline-offset: 2px !important; }
+    html.a11y-links a { text-decoration: underline !important; }
+  `;
+  let style = null;
+  function apply() {
+    const s = read(), root = document.documentElement;
+    if (!style) { style = document.createElement("style"); style.id = "hyadeos-a11y"; style.textContent = CSS; (document.head || root).appendChild(style); }
+    root.classList.toggle("a11y-motion", !!s.reduceMotion);
+    root.classList.toggle("a11y-solid", !!s.reduceTransparency);
+    root.classList.toggle("a11y-focus", !!s.focusRing);
+    root.classList.toggle("a11y-links", !!s.underlineLinks);
+    // Larger text: apps and pages scale; the desktop shell keeps its own size (window positions are in pixels).
+    const size = [115, 130].includes(Number(s.textSize)) ? Number(s.textSize) : 100;
+    if (!isShell) root.style.zoom = size === 100 ? "" : String(size / 100);
+    // Contrast and colour filters on the desktop only: apps are drawn inside it, so they get them too.
+    if (isShell) {
+      const filters = [];
+      if (s.contrast) filters.push("contrast(1.25)");
+      if (s.colorFilter === "grayscale") filters.push("grayscale(1)");
+      if (s.colorFilter === "invert") filters.push("invert(1) hue-rotate(180deg)");
+      root.style.filter = filters.join(" ");
+    }
+    pauseMovingWallpapers(!!s.reduceMotion);
+  }
+  // Reduce motion also tells the page's own scripts (window effects, credits, animations started from
+  // code) that motion is reduced: they all ask matchMedia("(prefers-reduced-motion: reduce)").
+  const realMatchMedia = window.matchMedia.bind(window);
+  window.matchMedia = query => {
+    const result = realMatchMedia(query);
+    if (!/prefers-reduced-motion:\s*reduce/.test(query) || !read().reduceMotion) return result;
+    // MediaQueryList's "matches" can't be overridden, so answer with a stand-in that says "reduce".
+    const noop = () => {};
+    return { matches: true, media: result.media, onchange: null, addListener: noop, removeListener: noop,
+      addEventListener: noop, removeEventListener: noop, dispatchEvent: () => false };
+  };
+  // Live wallpapers (videos) stop moving while Reduce motion is on.
+  function pauseMovingWallpapers(paused) {
+    if (!isShell || !document.body) return;
+    document.querySelectorAll("#desktop-wallpaper video, .wallpaper video, video.live-wallpaper").forEach(v => {
+      if (paused && !v.paused) { v.dataset.a11yPaused = "1"; v.pause(); }
+      else if (!paused && v.dataset.a11yPaused) { delete v.dataset.a11yPaused; v.play().catch(() => {}); }
+    });
+  }
+  try { apply(); } catch (e) {}
+  document.addEventListener("DOMContentLoaded", () => { try { apply(); } catch (e) {} });
+  window.addEventListener("storage", event => { if (event.key === KEY) try { apply(); } catch (e) {} });
+  window.hyadeOSA11y = { read, apply, KEY };
+})();
+
 (function () {
   const ATTRIBUTES = [["placeholder", "placeholder"], ["title", "title"], ["aria-label", "aria-label"]];
   let languages = { en: "English" };

@@ -4,6 +4,10 @@ contextBridge.exposeInMainWorld('hyadeOSElectron', Object.freeze({
     shutdown: () => ipcRenderer.invoke('hyadeos:shutdown'),
     reboot: () => ipcRenderer.invoke('hyadeos:reboot'),
     clearBrowserData: () => ipcRenderer.invoke('hyadeos:clear-browser-data'),
+    // Window motion: a JPEG of { x, y, width, height } of the desktop (answered only for the desktop page).
+    captureRect: rect => ipcRenderer.invoke('hyadeos:capture-rect', {
+        x: Number(rect?.x), y: Number(rect?.y), width: Number(rect?.width), height: Number(rect?.height)
+    }),
     browserExtensions: Object.freeze({
         list: () => ipcRenderer.invoke('hyadeos:extensions-list'),
         install: input => ipcRenderer.invoke('hyadeos:extensions-install', String(input)),

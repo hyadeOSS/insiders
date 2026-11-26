@@ -39,10 +39,16 @@
     .finale { position: absolute; left: 0; right: 0; top: 55%; transform: translateY(-50%) scale(.96); text-align: center; pointer-events: none;
       font-size: clamp(40px, 9vw, 92px); font-weight: 700; letter-spacing: -1px; opacity: 0; }
     .finale.shown { opacity: 1; transform: translateY(-50%) scale(1); }
+    /* A small line under it, a moment later; it leaves together with the big text (the whole .finale fades). */
+    .finale-sub { margin-top: 6px; font-size: 17px; font-weight: 400; letter-spacing: .3px; color: rgba(255,255,255,.75);
+      opacity: 0; transform: translateY(6px); transition: opacity 1.2s ease, transform 1.2s cubic-bezier(.16,1,.3,1); }
+    .finale.sub-shown .finale-sub { opacity: 1; transform: none; }
+    .finale:not(.sub-shown) .finale-sub { transition: none; }
     /* Reduced motion: no rolling, the list just scrolls. */
     body.static .screen { overflow-y: auto; -webkit-mask-image: none; mask-image: none; }
     body.static .roll { position: static; padding: 30px 0; }
     body.static .finale { position: static; margin: 20px 0 40px; transform: none; opacity: 1; }
+    body.static .finale-sub { opacity: 1; transform: none; }
     ::-webkit-scrollbar { display: none; }
   </style>
 </head>
@@ -56,7 +62,7 @@
   <div class="screen" id="screen">
     <div class="roll" id="roll" aria-live="off"></div>
   </div>
-  <div class="finale" id="finale">mariowstech</div>
+  <div class="finale" id="finale"><div>mariowstech</div><div class="finale-sub">lily ti amo 💗</div></div>
 <script>
   // Sections in the order they roll. A name is a string, or [name, what they did].
   // small: true for long lists set in a smaller size.
@@ -79,7 +85,7 @@
     { role: hyadeOSI18n.t("settings.credits.dedicated", "Dedicated to"), names: ['liliaanxyy'] },
     { role: hyadeOSI18n.t("settings.credits.tributed", "Tributed to"), names: ['The DosVM Project', 'Project Kagerou'] },
     { role: hyadeOSI18n.t("settings.credits.open-source", "Open source code"), small: true,
-      names: ['Electron', 'Node.js', 'Express', 'body-parser', 'bcrypt', 'multer', 'node-cron', 'nodemailer', 'bare-server-node', 'Monaco Editor', 'Material Symbols', 'Poppins'] }
+      names: ['Electron', 'Node.js', 'Express', 'body-parser', 'bcrypt', 'multer', 'node-cron', 'nodemailer', 'Monaco Editor', 'Material Symbols', 'Poppins'] }
   ];
   // Logos of the projects in "Tributed to" (PNG files next to this page). A missing file is left out.
   const TRIBUTE_LOGOS = [['dosvm.png', 'The DosVM Project'], ['projectkagerou.png', 'Project Kagerou']];
@@ -148,6 +154,7 @@
     finaleUntil = performance.now() + FINALE.in + FINALE.hold + FINALE.out;
     finale.style.transition = `opacity ${FINALE.in}ms ease, transform ${FINALE.in + FINALE.hold + FINALE.out}ms cubic-bezier(.16,1,.3,1)`;
     finale.classList.add('shown');
+    setTimeout(() => finale.classList.add('sub-shown'), 700); // "lily ti amo" a moment after
     setTimeout(() => {
       finale.style.transition = `opacity ${FINALE.out}ms ease, transform ${FINALE.out}ms ease`;
       finale.classList.remove('shown');
@@ -163,7 +170,7 @@
       const dt = Math.min(100, now - last) / 1000;
       last = now;
       if (finaleUntil) {
-        if (now >= finaleUntil) { finaleUntil = 0; offset = start(); }
+        if (now >= finaleUntil) { finaleUntil = 0; offset = start(); finale.classList.remove('sub-shown'); } // hidden by now: reset for next time
       } else {
         offset -= SPEED * dt;
         if (offset < end()) playFinale();

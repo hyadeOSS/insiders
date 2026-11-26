@@ -7,41 +7,93 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="/desktop/assets/fonts/fonts.css" rel="stylesheet">
     <link href="/desktop/assets/setup.css" rel="stylesheet">
-    <title data-i18n="setup.license.title">hyadeOS - License</title>
+    <title data-i18n="setup.license.title">hyadeOS - Legal</title>
+    <!-- Setup step "Legal": links to the documents in /desktop/legal/ and the required acceptance
+         (POST /api/legal/accept records the version and date). -->
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Poppins', sans-serif;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        .legal-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+        .legal-links a { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-radius: 14px; color: #fff !important; text-decoration: none;
+            background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); transition: background .2s; font-size: 0.92rem; }
+        .legal-links a:hover { background: rgba(255, 255, 255, 0.12); }
+        .legal-links .material-symbols-outlined { font-size: 20px; color: var(--setup-accent); }
+        .accept { display: flex; align-items: flex-start; gap: 12px; margin-top: 6px; padding: 14px; border-radius: 14px; cursor: pointer; color: #fff;
+            background: rgba(255, 255, 255, 0.04); font-size: 0.92rem; line-height: 1.45; }
+        .accept input { width: 20px; height: 20px; flex: 0 0 20px; margin-top: 1px; accent-color: var(--setup-accent); cursor: pointer; }
+        .accept-error { min-height: 18px; margin-top: 8px; font-size: 0.82rem; color: #ff8a80; }
+        @media (max-width: 560px) { .legal-links { grid-template-columns: minmax(0, 1fr); } }
     </style>
 </head>
 <body class="setup-page" data-step="1">
 
-    <h1 class="setup-title" data-words="License|Licenza|Licență|执照">License</h1>
+    <h1 class="setup-title" data-words="Legal|Note legali|Juridic|法律">Legal</h1>
 
     <main class="setup-stage">
         <div class="setup-content">
             <div class="setup-panel">
                 <p class="setup-lede"><strong data-i18n="setup.license.thanks">Thanks for using hyadeOS!</strong></p>
-                <p class="setup-fine">
-                    <strong>(c) 2025 mariowstech and the hyadeOS team</strong><br><br>
-                    <span data-i18n="setup.license.apache">Licensed under the Apache License, Version 2.0;</span><br>
-                    <span data-i18n="setup.license.credits">You can use this file if you give credits to the original creators and you may not use this file except in compliance with the License.</span><br>
-                    <span data-i18n="setup.license.obtain">Obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0.</span><br><br>
-                    <span data-i18n="setup.license.fonts">This project bundles open source fonts and symbols from Google Fonts (SIL OFL / Apache 2.0), served locally: no data is sent to Google. Google Fonts is a trademark of Google LLC.</span><br>
-                    <span data-i18n="setup.license.notices">Third-party notices: see the NOTICE file.</span> <a href="/desktop/privacy.html" data-i18n="setup.license.privacy-notice">Privacy notice / Informativa privacy</a>
-                </p>
+                <p class="setup-fine" data-i18n="setup.legal.intro">hyadeOS is free and open source under the Apache License 2.0. It is still in development: it comes without warranty, and data can be lost, so keep backups. Please read these before you continue:</p>
+                <nav class="legal-links">
+                    <a href="/desktop/legal/license.html?from=setup"><span class="material-symbols-outlined">gavel</span><span data-i18n="setup.legal.license">License</span></a>
+                    <a href="/desktop/legal/terms.html?from=setup"><span class="material-symbols-outlined">description</span><span data-i18n="setup.legal.terms">Terms of use</span></a>
+                    <a href="/desktop/legal/privacy.html?from=setup"><span class="material-symbols-outlined">shield_lock</span><span data-i18n="setup.legal.privacy">Privacy</span></a>
+                    <a href="/desktop/legal/safety.html?from=setup"><span class="material-symbols-outlined">health_and_safety</span><span data-i18n="setup.legal.safety">Health &amp; safety</span></a>
+                </nav>
+                <label class="accept">
+                    <input type="checkbox" id="accept">
+                    <span data-i18n="setup.legal.accept">I have read and accept the License and the Terms of use, and I have read the Privacy notice.</span>
+                </label>
+                <div class="accept-error" id="acceptError" role="status"></div>
             </div>
             <p class="setup-help" data-i18n="setup.license.help">Need help? We're here for you: https://dsc.gg/mariowOS</p>
         </div>
     </main>
 
-    <a href="/desktop/password.html" class="setup-next" aria-label="Next" data-i18n-aria-label="setup.next">
+    <a href="/desktop/password.html" class="setup-next" id="next" aria-label="Next" data-i18n-aria-label="setup.next" aria-disabled="true">
         <svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>
     </a>
 
     <script src="/desktop/assets/setup.js"></script>
+    <script>
+        const LEGAL_VERSION = '2026-11-25';
+        const accept = document.getElementById('accept'), next = document.getElementById('next'), error = document.getElementById('acceptError');
+        const KEY = 'setupLegalAccepted';
+        // Coming back from a document keeps the tick.
+        try { accept.checked = sessionStorage.getItem(KEY) === LEGAL_VERSION; } catch (e) {}
+        const sync = () => {
+            next.setAttribute('aria-disabled', String(!accept.checked));
+            try { accept.checked ? sessionStorage.setItem(KEY, LEGAL_VERSION) : sessionStorage.removeItem(KEY); } catch (e) {}
+            if (accept.checked) error.textContent = '';
+        };
+        accept.addEventListener('change', sync);
+        sync();
+        // Runs before setup.js's own handler on the Next link (capture phase on the document):
+        // blocked until accepted, then the acceptance is saved before moving on.
+        let saving = false;
+        document.addEventListener('click', async event => {
+            if (!event.target.closest('#next')) return;
+            if (next.dataset.saved === '1') return; // let setup.js go on
+            event.preventDefault();
+            event.stopPropagation();
+            if (!accept.checked) {
+                error.textContent = hyadeOSI18n.t("setup.legal.required", "Tick the box to continue.");
+                accept.focus();
+                return;
+            }
+            if (saving) return;
+            saving = true;
+            try {
+                const res = await fetch('/api/legal/accept', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: LEGAL_VERSION }) });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.success) throw new Error(data.error || res.statusText);
+                next.dataset.saved = '1';
+                next.click();
+            } catch (e) {
+                error.textContent = hyadeOSI18n.t("setup.legal.save-failed", "Could not save your choice: {message}", { message: e.message });
+            } finally {
+                saving = false;
+            }
+        }, true);
+    </script>
 </body>
 </html>
